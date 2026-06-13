@@ -4,12 +4,13 @@
 """
 
 from fastapi import APIRouter
+from services.ai_chat_service import AIChatService
 from loguru import logger
 from model.request import ChatRequest
 
 
 router = APIRouter()
-
+ai_chat_service = AIChatService()
 
 @router.post("/chat")
 async def chat(request: ChatRequest):
@@ -18,7 +19,7 @@ async def chat(request: ChatRequest):
     """
     logger.info(f"会话{request.id}, 收到非流式对话请求:{request.question}")
 
-    answer = "这是对话结果"
+    answer = await ai_chat_service.chat(request.question, request.id)
     response = {
         "code": 200,
         "message": "success",
