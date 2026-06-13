@@ -1,5 +1,6 @@
 
 
+from typing import Any, AsyncGenerator, Dict
 from langchain_core.messages import HumanMessage, SystemMessage
 from core import config
 from langchain_openai import ChatOpenAI
@@ -54,3 +55,37 @@ class AIChatService:
         except Exception as e:
             raise e
 
+    async def stream_chat(
+        self, 
+        question: str, 
+        session_id: str
+        ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        流式聊天
+        :param question: 用户问题
+        :param session_id: 会话ID
+        """
+        logger.info(f"会话{session_id}, 收到流式对话请求, 用户问题:{question}")
+        try:
+            messages = [
+                SystemMessage(content=self.system_prompt),
+                HumanMessage(content=question)
+            ]
+            async for chunk in self.model.astream(messages):
+                content = chunk.content
+                if content:
+                    # 循环返回content
+                    yield {
+                        "session_id": session_id,
+                        "content": content,
+                        "done": False
+                    }
+            # 结束
+            yield {
+                "session_id": session_id,
+                "content": "",
+                "done": True
+            }
+            
+        except Exception as e:
+            raise e       
