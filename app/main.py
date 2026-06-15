@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.router import api_router
 from api.chat import router as chat_router
 from core.config import settings
-
+from services.vector_store_manager import vector_store_manager
 
 app = FastAPI(title=settings.PROJECT_NAME)
 

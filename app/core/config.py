@@ -10,6 +10,13 @@ class Settings(BaseSettings):
     ai_temperature: float = 0.7
     ai_api_key: str = ""
     ai_model: str = ""
+    qdrant_url: str = ""
+    qdrant_api_key: str = ""
+    embedding_model: str = ""
+    embedding_api_key: str = ""
+    embedding_api_base: str = ""
+    # 向量维度，默认1536
+    embedding_dimension: int = 1536
 
     class Config:
         env_file = str(BASE_DIR / ".env")
