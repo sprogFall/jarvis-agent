@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.router import api_router
 from api.chat import router as chat_router
+from api.file import router as file_router
 from core.config import settings
 from services.vector_store_manager import vector_store_manager
 
@@ -18,6 +19,7 @@ app.add_middleware(
 
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(chat_router, prefix="/api/v1")
+app.include_router(file_router, prefix="/api/v1")
 
 @app.get("/health")
 def health_check():

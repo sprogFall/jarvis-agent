@@ -8,6 +8,8 @@ from loguru import logger
 from core.config import settings
 from langchain_openai import OpenAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
+from langchain_core.documents import Document
+from typing import List
 
 COLLECTION_NAME = "Jarvis"
 
@@ -67,6 +69,30 @@ class VectorStoreManager:
             )
         )
         logger.info(f"Collection '{self.collection_name}' 创建成功")
+
+    def add_documents(self, documents: List[Document]) -> List[str]:
+        """
+        批量添加文档到向量存储中
+        :param documents: 文档列表
+        :return: 添加的文档ID列表
+        """
+        try:
+            import time
+            import uuid
+            start_time = time.time()
+            # 为每个文档生成一个唯一的ID
+            document_ids = [str(uuid.uuid4()) for _ in documents]
+            # 添加文档到向量存储中 (会自动调用embedding_function)
+            self.vector_store.add_documents(documents, ids=document_ids)
+            cost_time = time.time() - start_time
+            logger.info(f"添加 {len(documents)} 个文档到向量存储中成功，耗时 {cost_time:.2f} 秒, 平均耗时 {cost_time/len(documents):.2f} 秒")
+            return document_ids
+        except Exception as e:
+            logger.error(f"添加文档到向量存储中失败: {e}")
+            raise
+
+
+
 
 # 全局单例向量存储管理器
 vector_store_manager = VectorStoreManager()

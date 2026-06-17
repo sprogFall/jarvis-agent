@@ -2,6 +2,7 @@
 from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
+from services.vector_index_service import vector_index_service
 from loguru import logger
 
 router = APIRouter()
@@ -51,6 +52,7 @@ async def upload(file: UploadFile = File(...)) -> JSONResponse:
     try:
         logger.info(f"开始为上传文件{file_path}创建向量索引")
         # TODO 创建向量索引
+        vector_index_service.index_single_file(file_path)
         logger.info(f"向量索引创建完成，文件：{file_path}")
     except Exception as e:
         logger.error(f"向量索引创建失败，文件：{file_path}, 错误信息：{e}")

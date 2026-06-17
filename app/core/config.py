@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     # 向量维度，默认1536
     embedding_dimension: int = 1536
 
+    # 分片最大字数，默认800
+    chunk_max_size: int = 800
+    # 分片重叠字数，默认100
+    chunk_overlap: int = 100
+
     class Config:
         env_file = str(BASE_DIR / ".env")
 
