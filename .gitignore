@@ -30,3 +30,5 @@ build/
 
 # OS
 .DistSt
+
+app/uploads/
