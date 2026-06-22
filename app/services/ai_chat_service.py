@@ -2,9 +2,11 @@
 
 from typing import Any, AsyncGenerator, Dict
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain.agents import create_agent
 from core import config
 from langchain_openai import ChatOpenAI
 from loguru import logger
+from tools import DEFAULT_LOCAL_AGENT_TOOLS
 
 
 class AIChatService:
@@ -24,6 +26,13 @@ class AIChatService:
             streaming=self.streaming,
             base_url=config.settings.ai_base_url
         )
+        # 默认工具
+        self.tools = list(DEFAULT_LOCAL_AGENT_TOOLS)
+        # agent初始化状态
+        self._agent_initialized = False
+
+        self.agent = None
+
 
 
     def _build_system_prompt(self) -> str:
@@ -33,6 +42,19 @@ class AIChatService:
         from textwrap import dedent
         return dedent("""
         你是一个专业的AI助手，能够使用多种工具来帮助用户解决问题
+            工作原则:
+            1. 理解用户需求，选择合适的工具来完成任务
+            2. 当需要获取实时信息或专业知识时，主动使用相关工具
+            3. 基于工具返回的结果提供准确、专业的回答
+            4. 如果工具无法提供足够信息，请诚实地告知用户
+
+            回答要求:
+            - 保持友好、专业的语气
+            - 回答简洁明了，重点突出
+            - 基于事实，不编造信息
+            - 如有不确定的地方，明确说明
+
+            请根据用户的问题，灵活使用可用工具，提供高质量的帮助。
         """).strip()
 
 
@@ -46,12 +68,20 @@ class AIChatService:
         """
         try:
             logger.info(f"会话{session_id}, 收到非流式对话请求, 用户问题:{question}")
+            await self._initialize_agent()
             messages = [
                 SystemMessage(content=self.system_prompt),
                 HumanMessage(content=question)
             ]
-            aiMessage = self.model.invoke(messages)
-            return aiMessage.content
+            input = {"messages": messages}
+            response = await self.agent.ainvoke(input=input)
+            aiMessage = response.get("messages", "")
+            if aiMessage:
+                last_message = aiMessage[-1]
+                answer = last_message.content if hasattr(last_message, "content") else str(last_message)
+                return answer
+            logger.warning(f"会话{session_id}, AI助手未返回有效信息")
+            return ""
         except Exception as e:
             raise e
 
@@ -67,25 +97,46 @@ class AIChatService:
         """
         logger.info(f"会话{session_id}, 收到流式对话请求, 用户问题:{question}")
         try:
+            await self._initialize_agent()
             messages = [
                 SystemMessage(content=self.system_prompt),
                 HumanMessage(content=question)
             ]
-            async for chunk in self.model.astream(messages):
-                content = chunk.content
-                if content:
-                    # 循环返回content
-                    yield {
-                        "session_id": session_id,
-                        "content": content,
-                        "done": False
-                    }
+            input = {"messages": messages}
+            async for token, metadata in self.agent.astream(
+                input=input, 
+                stream_mode="messages"
+            ):
+                message_type = type(token).__name__
+                if message_type in ("AIMessage", "AIMessageChunk"):
+                    content_blocks = getattr(token, 'content_blocks', None)
+                    if content_blocks and isinstance(content_blocks, list):
+                        for block in content_blocks:
+                            text_content = block.get("text", "")
+                            yield {
+                                "session_id": session_id,
+                                "content": text_content,
+                                "done": False
+                            }
             # 结束
             yield {
                 "session_id": session_id,
                 "content": "",
                 "done": True
             }
-            
         except Exception as e:
             raise e       
+
+    async def _initialize_agent(self):
+        """异步初始化Agent"""
+        if self._agent_initialized:
+            return
+        self.agent = create_agent(
+            model=self.model,
+            tools=self.tools
+        )
+        self._agent_initialized = True
+
+        if self.tools:
+            tool_names = [tool.name if hasattr(tool, "name") else str(tool) for tool in self.tools]
+            logger.info(f"可用工具列表: {', '.join(tool_names)}")

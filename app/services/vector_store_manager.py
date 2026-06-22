@@ -91,7 +91,12 @@ class VectorStoreManager:
             logger.error(f"添加文档到向量存储中失败: {e}")
             raise
 
-
+    def get_vector_store(self) -> QdrantVectorStore:
+        """
+        获取向量存储
+        :return: 向量存储
+        """
+        return self.vector_store
 
 
 # 全局单例向量存储管理器
