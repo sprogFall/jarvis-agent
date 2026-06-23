@@ -77,8 +77,17 @@ class AIChatService:
                 SystemMessage(content=self.system_prompt),
                 HumanMessage(content=question)
             ]
+            # 配置 thread_id（用于会话持久化）
+            config_dict = {
+                "configurable": {
+                    "thread_id": session_id
+                }
+            }
             input = {"messages": messages}
-            response = await self.agent.ainvoke(input=input)
+            response = await self.agent.ainvoke(
+                input=input,
+                config=config_dict
+            )
             aiMessage = response.get("messages", "")
             if aiMessage:
                 last_message = aiMessage[-1]
