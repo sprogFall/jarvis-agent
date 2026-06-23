@@ -4,11 +4,11 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from services.vector_index_service import vector_index_service
 from loguru import logger
-
+from core.config import settings
 router = APIRouter()
 
 # 文件上传目录
-UPLOAD_DIR = Path("./uploads")
+UPLOAD_DIR = Path(settings.upload_dir)
 
 # 支持的文件类型
 ALLOWED_EXTENSTIONS = ["txt", 'md']

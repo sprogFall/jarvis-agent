@@ -25,6 +25,10 @@ class Settings(BaseSettings):
 
     # Redis 连接字符串，默认为空
     redis_conn_string: str = ""
+    # MySQL连接地址
+    mysql_url: str = ""
+    # 知识库文件上传地址
+    upload_dir: str = str((BASE_DIR.parent / "uploads").resolve())
 
     class Config:
         env_file = str(BASE_DIR / ".env")
