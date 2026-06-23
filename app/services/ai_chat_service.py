@@ -3,6 +3,8 @@
 from typing import Any, AsyncGenerator, Dict
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain.agents import create_agent
+from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+from redis.asyncio import Redis
 from core import config
 from langchain_openai import ChatOpenAI
 from loguru import logger
@@ -32,6 +34,8 @@ class AIChatService:
         self._agent_initialized = False
 
         self.agent = None
+
+        self.checkpointer = None
 
 
 
@@ -85,6 +89,8 @@ class AIChatService:
         except Exception as e:
             raise e
 
+
+
     async def stream_chat(
         self, 
         question: str, 
@@ -103,8 +109,15 @@ class AIChatService:
                 HumanMessage(content=question)
             ]
             input = {"messages": messages}
+            # 配置 thread_id（用于会话持久化）
+            config_dict = {
+                "configurable": {
+                    "thread_id": session_id
+                }
+            }
             async for token, metadata in self.agent.astream(
                 input=input, 
+                config=config_dict,
                 stream_mode="messages"
             ):
                 message_type = type(token).__name__
@@ -131,9 +144,16 @@ class AIChatService:
         """异步初始化Agent"""
         if self._agent_initialized:
             return
+        redis_client = Redis.from_url(config.settings.redis_conn_string)
+        self.checkpointer = AsyncRedisSaver(
+            redis_client=redis_client,
+            ttl={"default_ttl": 10080}
+        )
+        await self.checkpointer.setup()
         self.agent = create_agent(
             model=self.model,
-            tools=self.tools
+            tools=self.tools,
+            checkpointer=self.checkpointer
         )
         self._agent_initialized = True
 
