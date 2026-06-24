@@ -1,4 +1,4 @@
-
+import os.path
 from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
@@ -11,7 +11,7 @@ router = APIRouter()
 UPLOAD_DIR = Path(settings.upload_dir)
 
 # 支持的文件类型
-ALLOWED_EXTENSTIONS = ["txt", 'md']
+ALLOWED_EXTENSIONS = [".txt", '.md']
 
 # 文件大小限制 10MB
 MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -29,7 +29,10 @@ async def upload(file: UploadFile = File(...)) -> JSONResponse:
         raise HTTPException(status_code=400, detail="文件名不能为空")
     safe_filename = file.filename
 
-    # TODO 校验文件扩展名
+    # 校验文件扩展名
+    file_ext = os.path.splitext(safe_filename)[1].lower()
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="当前文件类型不支持")
 
     # 创建上传目录
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -51,7 +54,7 @@ async def upload(file: UploadFile = File(...)) -> JSONResponse:
     # 创建向量索引
     try:
         logger.info(f"开始为上传文件{file_path}创建向量索引")
-        # TODO 创建向量索引
+        # 创建向量索引
         vector_index_service.index_single_file(file_path)
         logger.info(f"向量索引创建完成，文件：{file_path}")
     except Exception as e:
