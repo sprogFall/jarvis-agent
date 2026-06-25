@@ -37,19 +37,22 @@ class VectorIndexService:
             # 1.读取文件内容
             content = path.read_text(encoding="utf-8")
             doc_hash = hashlib.md5(content.encode("utf-8")).hexdigest()
+            normalized_path = path.as_posix()
+
+            doc_name = Path(normalized_path).name
             logger.info(f"读取文件{file_path}, 内容长度: {len(content)}字符, 哈希值：{doc_hash}")
 
             # 2.删除该文件的旧数据(如果存在)
+            vector_store_manager.delete_documents_by_name(doc_name=doc_name)
             # 2.1 获取文件的规范化路径
             
-            normalized_path = path.as_posix()
             # 3.使用分割器
             docs = document_split_service.split_document(content, normalized_path)
             # 4.生成向量并存储
             if docs:
                 vector_store_manager.add_documents(docs)
                 # 存储文档记录
-                DocumentRecordService.save_or_update_document(db, doc_name=Path(normalized_path).name, 
+                DocumentRecordService.save_or_update_document(db, doc_name=doc_name, 
                     doc_path=file_path, doc_hash=doc_hash, doc_type=Path(normalized_path).suffix, doc_source="file_upload",
                      chunk_count=len(docs), status="active")
             else:

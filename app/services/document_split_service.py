@@ -1,5 +1,6 @@
 
 
+import datetime
 from pathlib import Path
 from typing import List
 
@@ -59,7 +60,8 @@ class DocumentSplitService:
                     {
                         "_source": file_path,
                         "_extension": Path(file_path).suffix,
-                        "_file_name": Path(file_path).name
+                        "_file_name": Path(file_path).name,
+                        "_create_time": datetime.datetime.now()
                     }
                 ]
             )
@@ -89,6 +91,7 @@ class DocumentSplitService:
                 doc.metadata["_source"] = file_path
                 doc.metadata["_extension"] = Path(file_path).suffix
                 doc.metadata["_file_name"] = Path(file_path).name
+                doc.metadata["_create_time"] = datetime.datetime.now()
             logger.info(f"Markdown文档分割完成，{file_path}, 分片数量: {len(final_docs)}")
             return final_docs
         except Exception as e:
