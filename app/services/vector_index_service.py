@@ -1,7 +1,10 @@
 
+import hashlib
 from pathlib import Path
+from services.document_record_service import DocumentRecordService
 from services.vector_store_manager import vector_store_manager
 from services.document_split_service import document_split_service
+from db.session import Session
 from loguru import logger
 
 
@@ -18,7 +21,7 @@ class VectorIndexService:
         logger.info("初始化向量索引服务完成")
 
     
-    def index_single_file(self, file_path: str):
+    def index_single_file(self, file_path: str, db: Session):
         """
         索引单个文件
         
@@ -33,7 +36,8 @@ class VectorIndexService:
         try:
             # 1.读取文件内容
             content = path.read_text(encoding="utf-8")
-            logger.info(f"读取文件{file_path}, 内容长度: {len(content)}字符")
+            doc_hash = hashlib.md5(content.encode("utf-8")).hexdigest()
+            logger.info(f"读取文件{file_path}, 内容长度: {len(content)}字符, 哈希值：{doc_hash}")
 
             # 2.删除该文件的旧数据(如果存在)
             # 2.1 获取文件的规范化路径
@@ -44,6 +48,10 @@ class VectorIndexService:
             # 4.生成向量并存储
             if docs:
                 vector_store_manager.add_documents(docs)
+                # 存储文档记录
+                DocumentRecordService.save_or_update_document(db, doc_name=Path(normalized_path).name, 
+                    doc_path=file_path, doc_hash=doc_hash, doc_type=Path(normalized_path).suffix, doc_source="file_upload",
+                     chunk_count=len(docs), status="active")
             else:
                 logger.info(f"文件{file_path}没有可索引的内容")
 

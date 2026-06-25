@@ -1,10 +1,11 @@
 import os.path
 from pathlib import Path
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from services.vector_index_service import vector_index_service
 from loguru import logger
 from core.config import settings
+from db.session import get_session, Session
 router = APIRouter()
 
 # 文件上传目录
@@ -18,7 +19,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 
 
 @router.post("/upload")
-async def upload(file: UploadFile = File(...)) -> JSONResponse:
+async def upload(file: UploadFile = File(...), db: Session = Depends(get_session)) -> JSONResponse:
     """
     上传文件，并自动创建向量索引
 
@@ -55,7 +56,7 @@ async def upload(file: UploadFile = File(...)) -> JSONResponse:
     try:
         logger.info(f"开始为上传文件{file_path}创建向量索引")
         # 创建向量索引
-        vector_index_service.index_single_file(file_path)
+        vector_index_service.index_single_file(file_path, db=db)
         logger.info(f"向量索引创建完成，文件：{file_path}")
     except Exception as e:
         logger.error(f"向量索引创建失败，文件：{file_path}, 错误信息：{e}")

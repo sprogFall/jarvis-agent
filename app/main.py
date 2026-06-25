@@ -1,12 +1,22 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.router import api_router
 from api.chat import router as chat_router
 from api.file import router as file_router
+from db.session import engine
+from db.base import Base
 from core.config import settings
-from services.vector_store_manager import vector_store_manager
 
-app = FastAPI(title=settings.PROJECT_NAME)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    print("数据库创建完毕")
+    yield
+
+app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
 # 配置 CORS 中间件，允许前端跨域访问
 app.add_middleware(

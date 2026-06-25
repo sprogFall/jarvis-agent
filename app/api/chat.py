@@ -7,7 +7,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from services.ai_chat_service import AIChatService
 from loguru import logger
-from model.request import ChatRequest
+from schema.request import ChatRequest
 
 
 router = APIRouter()

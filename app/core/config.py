@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     mysql_url: str = ""
     # 知识库文件上传地址
     upload_dir: str = str((BASE_DIR.parent / "uploads").resolve())
+    sqlalchemy_echo: bool = True
 
     class Config:
         env_file = str(BASE_DIR / ".env")
