@@ -1,8 +1,11 @@
-import os.path
+import os
 from pathlib import Path
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from typing import Optional
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, Query
 from fastapi.responses import JSONResponse
 from services.vector_index_service import vector_index_service
+from services.vector_store_manager import vector_store_manager
+from services.document_record_service import DocumentRecordService
 from loguru import logger
 from core.config import settings
 from db.session import get_session, Session
@@ -75,3 +78,78 @@ async def upload(file: UploadFile = File(...), db: Session = Depends(get_session
             }
         }
     )
+
+
+@router.get("/documents")
+async def list_documents(
+    doc_name: Optional[str] = Query(None, description="文档名称(模糊搜索)"),
+    db: Session = Depends(get_session)
+) -> JSONResponse:
+    """
+    查询知识库上传记录列表
+    """
+    try:
+        documents = DocumentRecordService.get_by_name(db, doc_name or "")
+        data = [
+            {
+                "id": doc.id,
+                "doc_name": doc.doc_name,
+                "doc_path": doc.doc_path,
+                "doc_type": doc.doc_type,
+                "doc_source": doc.doc_source,
+                "chunk_count": doc.chunk_count,
+                "version": doc.version,
+                "status": doc.status,
+            }
+            for doc in documents
+        ]
+        return JSONResponse(
+            status_code=200,
+            content={"code": 200, "message": "success", "data": data}
+        )
+    except Exception as e:
+        logger.error(f"查询文档列表失败: {e}")
+        raise HTTPException(status_code=500, detail="查询文档列表失败")
+
+
+@router.delete("/documents/{doc_id}")
+async def delete_document(doc_id: int, db: Session = Depends(get_session)) -> JSONResponse:
+    """
+    删除知识库文档（同时删除向量索引和本地文件）
+    """
+    try:
+        # 查询文档记录
+        from model.document import Document
+        doc = db.query(Document).filter(Document.id == doc_id).first()
+        if not doc:
+            raise HTTPException(status_code=404, detail="文档记录不存在")
+
+        doc_name = doc.doc_name
+        doc_path = doc.doc_path
+
+        # 删除向量索引
+        try:
+            vector_store_manager.delete_documents_by_name(doc_name)
+            logger.info(f"向量索引删除成功: {doc_name}")
+        except Exception as e:
+            logger.warning(f"向量索引删除失败(可能不存在): {doc_name}, 错误: {e}")
+
+        # 删除本地文件
+        file_path = Path(doc_path)
+        if file_path.exists():
+            file_path.unlink()
+            logger.info(f"本地文件删除成功: {doc_path}")
+
+        # 删除数据库记录
+        DocumentRecordService.delete_by_id(db, doc_id)
+        logger.info(f"数据库记录删除成功: {doc_name}")
+
+        return JSONResponse(
+            status_code=200,
+            content={"code": 200, "message": "success", "data": {"doc_name": doc_name}}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除文档失败: {e}")
+        raise HTTPException(status_code=500, detail="删除文档失败")

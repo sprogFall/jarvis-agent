@@ -402,6 +402,76 @@
         .file-item .file-status.error     { color: #ef4444; }
         .file-item .file-status.uploading { color: #667eea; }
 
+        .file-item .file-info {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .file-item .file-chunks {
+            font-size: 11px;
+            color: #999;
+        }
+
+        .file-item .delete-btn {
+            margin-left: 10px;
+            padding: 4px 10px;
+            border: 1px solid #ef4444;
+            border-radius: 6px;
+            background: white;
+            color: #ef4444;
+            font-size: 12px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .file-item .delete-btn:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        .file-item .delete-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .doc-list-section {
+            margin-top: 8px;
+        }
+
+        .doc-list-section h3 {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 10px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .doc-list-section h3 .refresh-btn {
+            font-size: 12px;
+            font-weight: 400;
+            color: #667eea;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 2px 6px;
+        }
+
+        .doc-list-section h3 .refresh-btn:hover {
+            text-decoration: underline;
+        }
+
+        .doc-file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
         .empty-hint {
             text-align: center;
             color: #bbb;
@@ -452,9 +522,18 @@
                     <h2>知识库管理</h2>
                     <p class="desc">上传文档后，AI 将基于文档内容为你提供更精准的回答。</p>
                 </div>
+                <div class="doc-list-section">
+                    <h3>
+                        <span>知识库文档</span>
+                        <button class="refresh-btn" id="refreshDocBtn">刷新</button>
+                    </h3>
+                    <div class="doc-file-list" id="docFileList">
+                        <div class="empty-hint" id="docEmptyHint">暂无知识库文档</div>
+                    </div>
+                </div>
                 <div class="upload-area" id="uploadArea">
                     <input type="file" id="fileInput" accept=".txt,.md" multiple>
-                    <div class="upload-icon">📄</div>
+                    <div class="upload-icon"></div>
                     <div class="upload-text">点击或拖拽文件到此处上传</div>
                     <div class="upload-hint">支持 .txt、.md 格式，单个文件最大 10MB</div>
                 </div>
@@ -628,10 +707,81 @@
         });
 
         // ========== 知识库模块 ==========
-        const uploadArea = document.getElementById('uploadArea');
-        const fileInput  = document.getElementById('fileInput');
-        const fileList   = document.getElementById('fileList');
-        const emptyHint  = document.getElementById('emptyHint');
+        const uploadArea   = document.getElementById('uploadArea');
+        const fileInput    = document.getElementById('fileInput');
+        const fileList     = document.getElementById('fileList');
+        const emptyHint    = document.getElementById('emptyHint');
+        const docFileList  = document.getElementById('docFileList');
+        const docEmptyHint = document.getElementById('docEmptyHint');
+        const refreshDocBtn = document.getElementById('refreshDocBtn');
+
+        // 加载知识库文档列表
+        async function loadDocuments() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/documents`);
+                const result = await response.json();
+                if (result.code === 200 && Array.isArray(result.data)) {
+                    renderDocList(result.data);
+                }
+            } catch (error) {
+                console.error('加载文档列表失败:', error);
+            }
+        }
+
+        function renderDocList(docs) {
+            docFileList.innerHTML = '';
+            if (docs.length === 0) {
+                docFileList.innerHTML = '<div class="empty-hint" id="docEmptyHint">暂无知识库文档</div>';
+                return;
+            }
+            docs.forEach(doc => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.innerHTML = `
+                    <div class="file-info">
+                        <span class="file-name">${doc.doc_name}</span>
+                        <span class="file-chunks">分片数: ${doc.chunk_count} | 版本: ${doc.version} | 状态: ${doc.status}</span>
+                    </div>
+                    <button class="delete-btn" data-id="${doc.id}" data-name="${doc.doc_name}">删除</button>
+                `;
+                div.querySelector('.delete-btn').addEventListener('click', () => deleteDocument(doc.id, doc.doc_name, div));
+                docFileList.appendChild(div);
+            });
+        }
+
+        async function deleteDocument(id, name, element) {
+            if (!confirm(`确定要删除文档「${name}」吗？将同时删除向量索引和本地文件。`)) return;
+            const btn = element.querySelector('.delete-btn');
+            btn.disabled = true;
+            btn.textContent = '删除中...';
+            try {
+                const response = await fetch(`${API_BASE_URL}/documents/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (response.ok && result.code === 200) {
+                    element.remove();
+                    if (docFileList.children.length === 0) {
+                        docFileList.innerHTML = '<div class="empty-hint">暂无知识库文档</div>';
+                    }
+                } else {
+                    alert(result.detail || '删除失败');
+                    btn.disabled = false;
+                    btn.textContent = '删除';
+                }
+            } catch (error) {
+                alert('网络错误: ' + error.message);
+                btn.disabled = false;
+                btn.textContent = '删除';
+            }
+        }
+
+        // 切换到知识库标签页时加载文档列表
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (btn.dataset.tab === 'knowledge') loadDocuments();
+            });
+        });
+
+        refreshDocBtn.addEventListener('click', loadDocuments);
 
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -669,6 +819,7 @@
 
                     if (response.ok && result.code === 200) {
                         setStatus(item, '✓ 上传成功', 'success');
+                        loadDocuments();
                     } else {
                         const msg = result.detail || result.message || '上传失败';
                         setStatus(item, `✗ ${msg}`, 'error');
