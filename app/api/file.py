@@ -15,7 +15,7 @@ router = APIRouter()
 UPLOAD_DIR = Path(settings.upload_dir)
 
 # 支持的文件类型
-ALLOWED_EXTENSIONS = [".txt", '.md']
+ALLOWED_EXTENSIONS = [".txt", '.md', ".pdf"]
 
 # 文件大小限制 10MB
 MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -27,6 +27,7 @@ async def upload(file: UploadFile = File(...), db: Session = Depends(get_session
     上传文件，并自动创建向量索引
 
     :param file: 上传的文件
+    :param db: 数据库操作对象
     :return: 上传结果
     """
     if not file.filename:
@@ -89,7 +90,7 @@ async def list_documents(
     查询知识库上传记录列表
     """
     try:
-        documents = DocumentRecordService.get_by_name(db, doc_name or "")
+        documents = DocumentRecordService.get_by_name_like(db, doc_name or "")
         data = [
             {
                 "id": doc.id,

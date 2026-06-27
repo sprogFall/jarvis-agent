@@ -1,5 +1,7 @@
 
-from typing import List
+from typing import Sequence
+
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from model.document import Document
@@ -15,7 +17,13 @@ class DocumentRecordService:
         """
         保存或更新文档信息
         :param db: 数据库会话
-        :param document: 文档信息
+        :param doc_name: 文档名
+        :param doc_path: 文档路径
+        :param doc_type: 文档类型
+        :param doc_hash: 文档内容hash
+        :param doc_source: 文档来源
+        :param chunk_count: 分片数
+        :param status: 状态
         :return: 文档信息
         """
         document = Document(
@@ -39,7 +47,7 @@ class DocumentRecordService:
         return document
 
     @staticmethod
-    def get_by_name(db: Session, doc_name: str) -> List[Document]:
+    def get_by_name_like(db: Session, doc_name: str) -> Sequence[Document]:
         """
         根据文档名称查询文档列表
         :param db: 数据库会话
@@ -47,20 +55,31 @@ class DocumentRecordService:
         :return: 文档列表
         """
         if doc_name:
-            return db.query(Document).filter(Document.doc_name.like(f"%{doc_name}%")).all()
+            stmt = select(Document).where(Document.doc_name.like(f"%{doc_name}%"))
+            return db.execute(stmt).scalars().all()
         else:
-            return db.query(Document).all()
+            return db.execute(select(Document)).scalars().all()
 
     @staticmethod
-    def delete_by_id(db: Session, id: int) -> bool:
+    def get_by_name(db: Session, doc_name: str) -> Document:
+        """
+        根据文档名称，精准匹配文档数据
+        :param db: 数据库会话
+        :param doc_name: 文档名
+        """
+        return db.execute(select(Document).where(Document.doc_name == doc_name)).scalars().first()
+
+
+    @staticmethod
+    def delete_by_id(db: Session, doc_id: int) -> bool:
         """
         根据ID删除文档
         :param db: 数据库会话
-        :param id: 文档ID
+        :param doc_id: 文档ID
         :return: 是否删除成功
         """
         try:
-            db.query(Document).filter(Document.id == id).delete()
+            db.query(Document).filter(Document.id == doc_id).delete()
             db.commit()
             return True
         except Exception as e:
