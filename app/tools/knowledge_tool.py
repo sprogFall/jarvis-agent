@@ -1,9 +1,13 @@
-"""知识库检索工具 - 从向量数据库中检索相关信息"""
+"""知识库检索工具 - 从向量数据库中检索相关信息
+支持向量检索 + BM25 关键词检索的混合模式
+"""
 
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 from langchain_core.documents import Document
 from langchain_core.tools import tool
+from langchain_classic.retrievers import EnsembleRetriever
+from core.config import settings
 from services.vector_store_manager import vector_store_manager
 from loguru import logger
 
@@ -17,17 +21,96 @@ def retrieve_knowledge(query: str) -> Tuple[str, List[Document]]:
     :return: 格式化后的上下文文本，原始文档列表
     """
     try:
-        logger.info(f"知识检索工具被调用, query='{query}'")
-        vector_store = vector_store_manager.get_vector_store()
-        docs = vector_store.similarity_search(query)
+        logger.info(f"知识检索工具被调用, query='{query}', hybrid={settings.hybrid_search_enabled}")
+
+        if settings.hybrid_search_enabled:
+            docs = _hybrid_search(query)
+        else:
+            docs = _vector_search(query)
+
         if not docs:
             logger.info(f"未找到相关知识, query='{query}'")
             return "未找到相关知识", []
+
         content = format_docs(docs)
-        logger.info(f"知识检索成功，检索到{len(docs)}个相关文档，结果: {content}")
+        logger.info(f"知识检索成功，检索到{len(docs)}个相关文档")
         return content, docs
     except Exception as e:
         raise e
+
+
+def _hybrid_search(query: str) -> List[Document]:
+    """
+    混合检索：向量检索 + BM25 关键词检索，通过 RRF 融合排序
+    """
+    bm25_retriever = vector_store_manager.get_bm25_retriever()
+    if bm25_retriever is None:
+        logger.warning("BM25 检索器未就绪，回退到纯向量检索")
+        return _vector_search(query)
+
+    vector_store = vector_store_manager.get_vector_store()
+    vector_retriever = vector_store.as_retriever(search_kwargs={"k": settings.vector_search_k})
+
+    # 分别执行检索
+    vector_doc: List[Document] = vector_retriever.invoke(query)
+    bm25_doc: List[Document] = bm25_retriever.invoke(query)
+
+    # 给文档打来源标签
+    for doc in vector_doc:
+        doc.metadata["_from_source"] = "vector"
+        doc.metadata["_retriever_score"] = doc.metadata.get("score", 0.0)
+    
+
+    for doc in bm25_doc:
+        doc.metadata["_from_source"] = "bm25"
+        doc.metadata["_retriever_score"] = doc.metadata.get("score", 0.0)
+
+    # 手动RRF融合
+    from collections import defaultdict
+
+    doc_map: Dict[str, Document] = {}
+    for doc in vector_doc + bm25_doc:
+        doc_id = doc.metadata.get("id") or doc.page_content
+        if doc_id not in doc_map:
+            doc_map[doc_id] = doc
+            doc_map[doc_id].metadata["_retriever_source"] = []
+            doc_map[doc_id].metadata["_rrf_score"] = 0
+    
+    # 计算RRF分数
+
+    def _calculate_rff(docs: List[Document], weight):
+        for rank, doc in enumerate(docs, 1):
+            doc_id = doc.metadata.get("id") or doc.page_content
+            doc_map[doc_id].metadata["_retriever_source"].append(doc.metadata.get("_from_source"))
+            doc_map[doc_id].metadata["_rrf_score"] += weight * (1.0 / (60 + rank))
+
+    # 分别计算两个检索器的rff
+    bm25_weight = 1.0 - settings.vector_weight
+    _calculate_rff(vector_doc, settings.vector_weight)
+    _calculate_rff(bm25_doc, bm25_weight)
+
+    # 排序并返回
+    sorted_docs = sorted(
+        doc_map.values(),
+        key=lambda d: d.metadata["_rrf_score"],
+        reverse=True
+    )
+    final_docs = sorted_docs[:settings.final_top_k]
+    if settings.debug:
+        # 调试模式打印RFF排名和来源
+        for rank, doc in enumerate(final_docs, 1):
+            logger.info(f"文档来源: {doc.metadata['_retriever_source']}, RRF分数: {doc.metadata['_rrf_score']:.4f}, 排名: {rank}")
+
+    return final_docs
+
+
+def _vector_search(query: str) -> List[Document]:
+    """
+    纯向量检索（回退方案）
+    """
+    vector_store = vector_store_manager.get_vector_store()
+    docs = vector_store.similarity_search(query, k=settings.vector_search_k)
+    return docs
 
 
 def format_docs(docs: List[Document]) -> str:

@@ -26,7 +26,9 @@ class AIChatService:
             api_key=config.settings.ai_api_key,
             temperature=config.settings.ai_temperature,
             streaming=self.streaming,
-            base_url=config.settings.ai_base_url
+            base_url=config.settings.ai_base_url,
+            # 流式 chunk 超时（秒），防止模型思考时间较长时被误判超时断开
+            stream_chunk_timeout=config.settings.stream_chunk_timeout,
         )
         # 默认工具
         self.tools = list(DEFAULT_LOCAL_AGENT_TOOLS)

@@ -1,6 +1,5 @@
-"""
-向量数据库管理 封装对向量数据库的操作
-目前向量数据库使用Qdrant
+"""向量数据库管理 封装对向量数据库的操作
+目前向量数据库使用Qdrant，支持向量检索 + BM25 混合检索
 """
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, FieldCondition, Filter, MatchValue, PayloadSchemaType, VectorParams
@@ -9,7 +8,17 @@ from core.config import settings
 from langchain_openai import OpenAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from langchain_core.documents import Document
-from typing import List
+from langchain_community.retrievers import BM25Retriever
+from typing import List, Optional
+import jieba
+
+
+def _chinese_tokenize(text: str) -> List[str]:
+    """
+    中文分词函数，用于 BM25 检索
+    使用 jieba 分词，并过滤空白 token
+    """
+    return [t for t in jieba.lcut(text) if t.strip()]
 
 COLLECTION_NAME = "Jarvis"
 
@@ -24,7 +33,10 @@ class VectorStoreManager:
         """
         self.vector_store: QdrantVectorStore = None
         self.collection_name = COLLECTION_NAME
+        self._bm25_retriever: Optional[BM25Retriever] = None
         self._initialize_vector_store()
+        # 初始化后构建 BM25 索引
+        self._build_bm25_index()
 
     def _initialize_vector_store(self):
         """ 初始化Qdrant Vector Store """
@@ -105,6 +117,8 @@ class VectorStoreManager:
             self.vector_store.add_documents(documents, ids=document_ids)
             cost_time = time.time() - start_time
             logger.info(f"添加 {len(documents)} 个文档到向量存储中成功，耗时 {cost_time:.2f} 秒, 平均耗时 {cost_time/len(documents):.2f} 秒")
+            # 刷新 BM25 索引
+            self._build_bm25_index()
             return document_ids
         except Exception as e:
             logger.error(f"添加文档到向量存储中失败: {e}")
@@ -131,9 +145,72 @@ class VectorStoreManager:
                 points_selector=search_filter
             )
             logger.info(f"根据文档名称删除文档成功: {doc_name}")
+            # 刷新 BM25 索引
+            self._build_bm25_index()
         except Exception as e:
             logger.error(f"根据文档名称删除文档失败: {e}")
             raise
+
+    def get_bm25_retriever(self) -> Optional[BM25Retriever]:
+        """获取 BM25 检索器（如果已构建）"""
+        return self._bm25_retriever
+
+    def rebuild_bm25_index(self):
+        """手动重建 BM25 索引（供外部调用）"""
+        self._build_bm25_index()
+
+    def _build_bm25_index(self):
+        """
+        从 Qdrant 中拉取全部文档，构建/重建 BM25 索引
+        """
+        try:
+            import time
+            start_time = time.time()
+            logger.info("开始构建 BM25 索引...")
+            client: QdrantClient = self.vector_store.client
+
+            all_docs: List[Document] = []
+            next_offset = None
+
+            while True:
+                scroll_params = {
+                    "collection_name": self.collection_name,
+                    "limit": 100,
+                    "with_vectors": False,
+                }
+                if next_offset is not None:
+                    scroll_params["offset"] = next_offset
+
+                points, next_offset = client.scroll(**scroll_params)
+
+                for point in points:
+                    payload = point.payload or {}
+                    metadata = payload.get("metadata", {})
+                    text = payload.get("page_content", "")
+                    if text:
+                        all_docs.append(Document(page_content=text, metadata=metadata))
+
+                if next_offset is None:
+                    break
+
+            if not all_docs:
+                logger.warning("Qdrant 中没有文档，跳过 BM25 索引构建")
+                self._bm25_retriever = None
+                return
+
+            self._bm25_retriever = BM25Retriever.from_documents(
+                all_docs,
+                k=settings.bm25_search_k,
+                # 使用 jieba 中文分词，替换默认的空白分词
+                preprocess_func=_chinese_tokenize,
+            )
+            cost_time = time.time() - start_time
+            logger.info(
+                f"BM25 索引构建成功，共 {len(all_docs)} 个文档，耗时 {cost_time:.2f} 秒"
+            )
+        except Exception as e:
+            logger.error(f"构建 BM25 索引失败: {e}")
+            self._bm25_retriever = None
 
     def get_vector_store(self) -> QdrantVectorStore:
         """
