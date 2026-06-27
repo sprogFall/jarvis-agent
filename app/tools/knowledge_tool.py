@@ -66,8 +66,6 @@ def _hybrid_search(query: str) -> List[Document]:
         doc.metadata["_retriever_score"] = doc.metadata.get("score", 0.0)
 
     # 手动RRF融合
-    from collections import defaultdict
-
     doc_map: Dict[str, Document] = {}
     for doc in vector_doc + bm25_doc:
         doc_id = doc.metadata.get("id") or doc.page_content

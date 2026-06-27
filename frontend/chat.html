@@ -4,22 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI 聊天助手</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px;
+            height: 100vh; display: flex; justify-content: center; align-items: center; padding: 12px;
         }
         .app-container {
-            width: 100%; max-width: 1100px; height: 680px;
+            width: 100%; max-width: 1500px; height: calc(100vh - 24px); min-height: 500px;
             background: white; border-radius: 16px;
             box-shadow: 0 20px 60px rgba(0,0,0,.3);
             display: flex; overflow: hidden;
         }
         /* ===== 左侧会话列表 ===== */
         .sidebar {
-            width: 260px; background: #f8f9fa; border-right: 1px solid #e0e0e0;
+            width: 280px; background: #f8f9fa; border-right: 1px solid #e0e0e0;
             display: flex; flex-direction: column; flex-shrink: 0;
         }
         .sidebar-header {
@@ -131,23 +134,64 @@
         }
         .message.user .message-avatar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .message.assistant .message-avatar { background: #f0f0f0; }
-        .message-content { max-width: 70%; padding: 10px 14px; border-radius: 12px; line-height: 1.5; word-wrap: break-word; }
+        .message-content { max-width: 80%; padding: 12px 16px; border-radius: 12px; line-height: 1.7; word-wrap: break-word; font-size: 14px; }
         .message.user .message-content { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
         .message.assistant .message-content { background: #f0f0f0; color: #333; }
+        /* ===== Markdown 渲染样式 ===== */
+        .message.assistant .message-content h1,
+        .message.assistant .message-content h2,
+        .message.assistant .message-content h3,
+        .message.assistant .message-content h4 { margin: 14px 0 6px; font-weight: 600; line-height: 1.4; }
+        .message.assistant .message-content h1 { font-size: 1.3em; }
+        .message.assistant .message-content h2 { font-size: 1.15em; }
+        .message.assistant .message-content h3 { font-size: 1.05em; }
+        .message.assistant .message-content p { margin: 6px 0; }
+        .message.assistant .message-content ul,
+        .message.assistant .message-content ol { margin: 6px 0; padding-left: 1.5em; }
+        .message.assistant .message-content li { margin: 3px 0; }
+        .message.assistant .message-content code {
+            background: #e2e2e2; padding: 1px 5px; border-radius: 4px; font-size: 0.9em;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        }
+        .message.assistant .message-content pre {
+            background: #282c34; color: #abb2bf; padding: 12px 14px; border-radius: 8px;
+            overflow-x: auto; margin: 8px 0; font-size: 13px; line-height: 1.5;
+        }
+        .message.assistant .message-content pre code {
+            background: none; padding: 0; color: inherit; font-size: inherit;
+        }
+        .message.assistant .message-content blockquote {
+            border-left: 3px solid #667eea; margin: 8px 0; padding: 4px 12px; color: #555;
+            background: #f9f9f9; border-radius: 0 6px 6px 0;
+        }
+        .message.assistant .message-content table {
+            border-collapse: collapse; margin: 8px 0; width: 100%; font-size: 13px;
+        }
+        .message.assistant .message-content th,
+        .message.assistant .message-content td {
+            border: 1px solid #ddd; padding: 6px 10px; text-align: left;
+        }
+        .message.assistant .message-content th { background: #e8e8e8; font-weight: 600; }
+        .message.assistant .message-content a { color: #667eea; text-decoration: none; }
+        .message.assistant .message-content a:hover { text-decoration: underline; }
+        .message.assistant .message-content hr { border: none; border-top: 1px solid #ddd; margin: 10px 0; }
+        .message.assistant .message-content img { max-width: 100%; border-radius: 6px; }
         .message.error .message-content { background: #fee; color: #c33; border: 1px solid #fcc; }
         .message-time { font-size: 10px; color: #bbb; align-self: flex-end; margin-top: 2px; }
         .message.user .message-time { align-self: flex-start; }
-        .message-wrapper { display: flex; flex-direction: column; max-width: 75%; }
+        .message-wrapper { display: flex; flex-direction: column; max-width: 85%; }
         .message.user .message-wrapper { align-items: flex-end; }
 
         .input-area {
-            padding: 14px 16px; background: #f7f7f7; border-top: 1px solid #e0e0e0;
-            display: flex; gap: 10px; flex-shrink: 0;
+            padding: 14px 20px; background: #f7f7f7; border-top: 1px solid #e0e0e0;
+            display: flex; gap: 10px; flex-shrink: 0; align-items: flex-end;
         }
         .input-wrapper { flex: 1; }
         #messageInput {
             width: 100%; padding: 10px 14px; border: 2px solid #e0e0e0;
-            border-radius: 24px; font-size: 14px; outline: none; transition: border-color .3s;
+            border-radius: 16px; font-size: 14px; outline: none; transition: border-color .3s;
+            resize: none; font-family: inherit; line-height: 1.5;
+            min-height: 44px; max-height: 160px; overflow-y: auto;
         }
         #messageInput:focus { border-color: #667eea; }
         #sendButton {
@@ -268,7 +312,7 @@
                 </div>
                 <div class="input-area" id="inputArea" style="display:none;">
                     <div class="input-wrapper">
-                        <input type="text" id="messageInput" placeholder="输入你的问题..." autocomplete="off">
+                        <textarea id="messageInput" placeholder="输入你的问题...（Shift+Enter 换行，Enter 发送）" rows="1" autocomplete="off"></textarea>
                     </div>
                     <button id="sendButton">发送</button>
                 </div>
@@ -477,6 +521,22 @@
         document.getElementById('newSessionBtn').addEventListener('click', createNewSession);
 
         // ========== 聊天模块 ==========
+        // Markdown 渲染配置
+        marked.setOptions({
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    return hljs.highlight(code, { language: lang }).value;
+                }
+                return hljs.highlightAuto(code).value;
+            },
+            breaks: true,
+            gfm: true
+        });
+
+        function renderMarkdown(text) {
+            try { return marked.parse(text); } catch (e) { return escapeHtml(text); }
+        }
+
         function addWelcomeMessage() {
             addMessage('assistant', '你好！我是 AI 助手，有什么可以帮助你的吗？');
         }
@@ -494,7 +554,11 @@
 
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
-            contentDiv.textContent = content;
+            if (role === 'assistant' && !isError) {
+                contentDiv.innerHTML = renderMarkdown(content);
+            } else {
+                contentDiv.textContent = content;
+            }
             msgWrapper.appendChild(contentDiv);
 
             wrapper.appendChild(avatar);
@@ -517,7 +581,11 @@
 
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
-            contentDiv.textContent = content;
+            if (role === 'assistant') {
+                contentDiv.innerHTML = renderMarkdown(content);
+            } else {
+                contentDiv.textContent = content;
+            }
             msgWrapper.appendChild(contentDiv);
 
             if (timeStr) {
@@ -589,6 +657,7 @@
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let buffer = '';
+                let fullContent = '';
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
@@ -600,7 +669,8 @@
                             try {
                                 const data = JSON.parse(line.substring(6));
                                 if (data.content) {
-                                    contentDiv.textContent += data.content;
+                                    fullContent += data.content;
+                                    contentDiv.innerHTML = renderMarkdown(fullContent);
                                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                                 }
                             } catch (e) { console.error('解析 SSE 数据失败:', e); }
@@ -634,7 +704,12 @@
         }
 
         sendButton.addEventListener('click', sendMessage);
-        messageInput.addEventListener('keypress', (e) => {
+        // textarea 自适应高度 + 发送逻辑
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+        });
+        messageInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
         });
 
