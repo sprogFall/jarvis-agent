@@ -5,542 +5,302 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI 聊天助手</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
+            height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px;
         }
-
-        .chat-container {
-            width: 100%;
-            max-width: 800px;
-            height: 600px;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+        .app-container {
+            width: 100%; max-width: 1100px; height: 680px;
+            background: white; border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,.3);
+            display: flex; overflow: hidden;
         }
+        /* ===== 左侧会话列表 ===== */
+        .sidebar {
+            width: 260px; background: #f8f9fa; border-right: 1px solid #e0e0e0;
+            display: flex; flex-direction: column; flex-shrink: 0;
+        }
+        .sidebar-header {
+            padding: 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; display: flex; align-items: center; justify-content: space-between;
+        }
+        .sidebar-header h2 { font-size: 16px; font-weight: 600; }
+        .new-session-btn {
+            background: rgba(255,255,255,.25); border: none; color: white;
+            padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px;
+            transition: background .2s;
+        }
+        .new-session-btn:hover { background: rgba(255,255,255,.4); }
+        .session-list {
+            flex: 1; overflow-y: auto; padding: 8px;
+        }
+        .session-item {
+            padding: 10px 12px; border-radius: 10px; cursor: pointer;
+            margin-bottom: 4px; transition: background .2s;
+            display: flex; flex-direction: column; gap: 4px; position: relative;
+        }
+        .session-item:hover { background: #e8e8e8; }
+        .session-item.active { background: #e0e0f5; }
+        .session-item .session-title {
+            font-size: 13px; font-weight: 500; color: #333;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            padding-right: 50px;
+        }
+        .session-item .session-time {
+            font-size: 11px; color: #999;
+        }
+        .session-item .session-status {
+            font-size: 10px; padding: 1px 6px; border-radius: 4px; position: absolute;
+            top: 10px; right: 10px;
+        }
+        .session-item .session-status.active { background: #dcfce7; color: #16a34a; }
+        .session-item .session-status.closed { background: #f1f1f1; color: #999; }
+        .session-item .session-actions {
+            position: absolute; top: 8px; right: 10px; display: none; gap: 4px;
+        }
+        .session-item:hover .session-actions { display: flex; }
+        .session-item:hover .session-status { display: none; }
+        .session-actions button {
+            border: none; background: none; cursor: pointer; font-size: 14px;
+            padding: 2px 4px; border-radius: 4px; transition: background .2s;
+        }
+        .session-actions button:hover { background: rgba(0,0,0,.1); }
+        .session-empty { text-align: center; color: #bbb; font-size: 13px; padding: 40px 16px; }
 
-        /* 顶部 Header */
+        /* ===== 右侧主区域 ===== */
+        .main-area { flex: 1; display: flex; flex-direction: column; }
         .chat-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            text-align: center;
-            font-size: 20px;
-            font-weight: 600;
-            flex-shrink: 0;
+            color: white; padding: 14px 20px; font-size: 16px; font-weight: 600;
+            display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
         }
-
-        /* 标签页导航 */
+        .chat-header .header-left { display: flex; align-items: center; gap: 10px; }
+        .chat-header .header-right { display: flex; align-items: center; gap: 8px; }
+        .chat-header .header-right button {
+            background: rgba(255,255,255,.2); border: none; color: white;
+            padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 12px;
+            transition: background .2s;
+        }
+        .chat-header .header-right button:hover { background: rgba(255,255,255,.35); }
         .tab-nav {
-            display: flex;
-            background: #f7f7f7;
-            border-bottom: 1px solid #e0e0e0;
-            flex-shrink: 0;
+            display: flex; background: #f7f7f7; border-bottom: 1px solid #e0e0e0; flex-shrink: 0;
         }
-
         .tab-btn {
-            flex: 1;
-            padding: 12px 0;
-            border: none;
-            background: transparent;
-            font-size: 14px;
-            font-weight: 600;
-            color: #888;
-            cursor: pointer;
-            position: relative;
-            transition: color 0.25s;
+            flex: 1; padding: 10px 0; border: none; background: transparent;
+            font-size: 13px; font-weight: 600; color: #888; cursor: pointer;
+            position: relative; transition: color .25s;
         }
-
-        .tab-btn:hover {
-            color: #555;
-        }
-
-        .tab-btn.active {
-            color: #667eea;
-        }
-
+        .tab-btn:hover { color: #555; }
+        .tab-btn.active { color: #667eea; }
         .tab-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 20%;
-            width: 60%;
-            height: 3px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 2px;
+            content: ''; position: absolute; bottom: 0; left: 20%; width: 60%; height: 3px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 2px;
         }
+        .tab-btn + .tab-btn { border-left: 1px solid #e0e0e0; }
+        .tab-content { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+        .tab-content.active { display: flex; }
 
-        .tab-btn + .tab-btn {
-            border-left: 1px solid #e0e0e0;
-        }
-
-        /* 标签页内容区 */
-        .tab-content {
-            flex: 1;
-            display: none;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .tab-content.active {
-            display: flex;
-        }
-
-        /* ---- 聊天页 ---- */
+        /* 聊天页 */
         .mode-switch {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 20px;
-            background: #f7f7f7;
-            border-bottom: 1px solid #e0e0e0;
-            flex-shrink: 0;
+            display: flex; justify-content: center; align-items: center; gap: 10px;
+            padding: 8px 20px; background: #f7f7f7; border-bottom: 1px solid #e0e0e0; flex-shrink: 0;
         }
-
-        .mode-switch label {
-            font-size: 14px;
-            color: #666;
-        }
-
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
-        }
-
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
+        .mode-switch label { font-size: 13px; color: #666; }
+        .switch { position: relative; display: inline-block; width: 46px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
         .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: 0.4s;
-            border-radius: 24px;
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc; transition: .4s; border-radius: 22px;
         }
-
         .slider:before {
-            position: absolute;
-            content: "";
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: 0.4s;
-            border-radius: 50%;
+            position: absolute; content: ""; height: 16px; width: 16px;
+            left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;
         }
+        input:checked + .slider { background-color: #667eea; }
+        input:checked + .slider:before { transform: translateX(24px); }
 
-        input:checked + .slider {
-            background-color: #667eea;
-        }
-
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-
-        .messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .message {
-            display: flex;
-            gap: 10px;
-            animation: fadeIn 0.3s ease-in;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .message.user {
-            flex-direction: row-reverse;
-        }
-
+        .messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+        .message { display: flex; gap: 10px; animation: fadeIn .3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .message.user { flex-direction: row-reverse; }
         .message-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            flex-shrink: 0;
+            width: 36px; height: 36px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
         }
-
-        .message.user .message-avatar {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .message.assistant .message-avatar {
-            background: #f0f0f0;
-        }
-
-        .message-content {
-            max-width: 70%;
-            padding: 12px 16px;
-            border-radius: 12px;
-            line-height: 1.5;
-            word-wrap: break-word;
-        }
-
-        .message.user .message-content {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .message.assistant .message-content {
-            background: #f0f0f0;
-            color: #333;
-        }
-
-        .message.error .message-content {
-            background: #fee;
-            color: #c33;
-            border: 1px solid #fcc;
-        }
+        .message.user .message-avatar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .message.assistant .message-avatar { background: #f0f0f0; }
+        .message-content { max-width: 70%; padding: 10px 14px; border-radius: 12px; line-height: 1.5; word-wrap: break-word; }
+        .message.user .message-content { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .message.assistant .message-content { background: #f0f0f0; color: #333; }
+        .message.error .message-content { background: #fee; color: #c33; border: 1px solid #fcc; }
+        .message-time { font-size: 10px; color: #bbb; align-self: flex-end; margin-top: 2px; }
+        .message.user .message-time { align-self: flex-start; }
+        .message-wrapper { display: flex; flex-direction: column; max-width: 75%; }
+        .message.user .message-wrapper { align-items: flex-end; }
 
         .input-area {
-            padding: 20px;
-            background: #f7f7f7;
-            border-top: 1px solid #e0e0e0;
-            display: flex;
-            gap: 10px;
-            flex-shrink: 0;
+            padding: 14px 16px; background: #f7f7f7; border-top: 1px solid #e0e0e0;
+            display: flex; gap: 10px; flex-shrink: 0;
         }
-
-        .input-wrapper {
-            flex: 1;
-            position: relative;
-        }
-
+        .input-wrapper { flex: 1; }
         #messageInput {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 24px;
-            font-size: 14px;
-            outline: none;
-            transition: border-color 0.3s;
+            width: 100%; padding: 10px 14px; border: 2px solid #e0e0e0;
+            border-radius: 24px; font-size: 14px; outline: none; transition: border-color .3s;
         }
-
-        #messageInput:focus {
-            border-color: #667eea;
-        }
-
+        #messageInput:focus { border-color: #667eea; }
         #sendButton {
-            padding: 12px 24px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 24px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: transform 0.2s, opacity 0.3s;
+            padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; border: none; border-radius: 24px; cursor: pointer; font-size: 13px;
+            font-weight: 600; transition: transform .2s, opacity .3s;
         }
-
-        #sendButton:hover:not(:disabled) {
-            transform: translateY(-2px);
-        }
-
-        #sendButton:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .typing-indicator {
-            display: flex;
-            gap: 4px;
-            padding: 12px 16px;
-        }
-
+        #sendButton:hover:not(:disabled) { transform: translateY(-2px); }
+        #sendButton:disabled { opacity: .6; cursor: not-allowed; }
+        .typing-indicator { display: flex; gap: 4px; padding: 10px 14px; }
         .typing-indicator span {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #999;
-            animation: typing 1.4s infinite;
+            width: 8px; height: 8px; border-radius: 50%; background: #999; animation: typing 1.4s infinite;
         }
+        .typing-indicator span:nth-child(2) { animation-delay: .2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: .4s; }
+        @keyframes typing { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-10px); } }
 
-        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-
-        @keyframes typing {
-            0%, 60%, 100% { transform: translateY(0); }
-            30%            { transform: translateY(-10px); }
-        }
-
-        /* ---- 知识库页 ---- */
-        .knowledge-page {
-            flex: 1;
-            padding: 24px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .knowledge-page h2 {
-            font-size: 18px;
-            color: #333;
-            margin-bottom: 4px;
-        }
-
-        .knowledge-page .desc {
-            font-size: 13px;
-            color: #888;
-        }
-
+        /* 知识库页 */
+        .knowledge-page { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+        .knowledge-page h2 { font-size: 16px; color: #333; }
+        .knowledge-page .desc { font-size: 12px; color: #888; }
         .upload-area {
-            border: 2px dashed #ccc;
-            border-radius: 12px;
-            padding: 40px 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            position: relative;
+            border: 2px dashed #ccc; border-radius: 12px; padding: 30px 20px;
+            text-align: center; cursor: pointer; transition: all .3s; position: relative;
         }
-
-        .upload-area:hover,
-        .upload-area.dragover {
-            border-color: #667eea;
-            background: #f5f3ff;
-        }
-
-        .upload-area input[type="file"] {
-            position: absolute;
-            inset: 0;
-            opacity: 0;
-            cursor: pointer;
-        }
-
-        .upload-icon {
-            font-size: 40px;
-            margin-bottom: 10px;
-        }
-
-        .upload-text {
-            font-size: 14px;
-            color: #666;
-        }
-
-        .upload-hint {
-            font-size: 12px;
-            color: #aaa;
-            margin-top: 6px;
-        }
-
-        .file-list-section h3 {
-            font-size: 14px;
-            color: #555;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        .file-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .file-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #fff;
-            border: 1px solid #e8e8e8;
-            border-radius: 10px;
-            padding: 10px 14px;
-            font-size: 13px;
-        }
-
-        .file-item .file-name {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            color: #444;
-        }
-
-        .file-item .file-status {
-            margin-left: 10px;
-            font-size: 12px;
-            flex-shrink: 0;
-        }
-
-        .file-item .file-status.success   { color: #22c55e; }
-        .file-item .file-status.error     { color: #ef4444; }
-        .file-item .file-status.uploading { color: #667eea; }
-
-        .file-item .file-info {
-            flex: 1;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .file-item .file-chunks {
-            font-size: 11px;
-            color: #999;
-        }
-
-        .file-item .delete-btn {
-            margin-left: 10px;
-            padding: 4px 10px;
-            border: 1px solid #ef4444;
-            border-radius: 6px;
-            background: white;
-            color: #ef4444;
-            font-size: 12px;
-            cursor: pointer;
-            flex-shrink: 0;
-            transition: all 0.2s;
-        }
-
-        .file-item .delete-btn:hover {
-            background: #ef4444;
-            color: white;
-        }
-
-        .file-item .delete-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .doc-list-section {
-            margin-top: 8px;
-        }
-
+        .upload-area:hover, .upload-area.dragover { border-color: #667eea; background: #f5f3ff; }
+        .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .upload-icon { font-size: 36px; margin-bottom: 8px; }
+        .upload-text { font-size: 13px; color: #666; }
+        .upload-hint { font-size: 11px; color: #aaa; margin-top: 4px; }
         .doc-list-section h3 {
-            font-size: 14px;
-            color: #555;
-            margin-bottom: 10px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            font-size: 13px; color: #555; margin-bottom: 8px; font-weight: 600;
+            display: flex; align-items: center; justify-content: space-between;
         }
-
         .doc-list-section h3 .refresh-btn {
-            font-size: 12px;
-            font-weight: 400;
-            color: #667eea;
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 2px 6px;
+            font-size: 12px; font-weight: 400; color: #667eea; background: none;
+            border: none; cursor: pointer; padding: 2px 6px;
         }
-
-        .doc-list-section h3 .refresh-btn:hover {
-            text-decoration: underline;
+        .doc-list-section h3 .refresh-btn:hover { text-decoration: underline; }
+        .doc-file-list { display: flex; flex-direction: column; gap: 6px; }
+        .file-item {
+            display: flex; align-items: center; justify-content: space-between;
+            background: #fff; border: 1px solid #e8e8e8; border-radius: 10px;
+            padding: 8px 12px; font-size: 12px;
         }
-
-        .doc-file-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+        .file-item .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #444; }
+        .file-item .file-status { margin-left: 10px; font-size: 11px; flex-shrink: 0; }
+        .file-item .file-status.success { color: #22c55e; }
+        .file-item .file-status.error { color: #ef4444; }
+        .file-item .file-status.uploading { color: #667eea; }
+        .file-item .file-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 2px; }
+        .file-item .file-chunks { font-size: 10px; color: #999; }
+        .file-item .delete-btn {
+            margin-left: 10px; padding: 3px 8px; border: 1px solid #ef4444; border-radius: 6px;
+            background: white; color: #ef4444; font-size: 11px; cursor: pointer; flex-shrink: 0;
+            transition: all .2s;
         }
-
-        .empty-hint {
-            text-align: center;
-            color: #bbb;
-            font-size: 13px;
-            padding: 20px 0;
+        .file-item .delete-btn:hover { background: #ef4444; color: white; }
+        .file-item .delete-btn:disabled { opacity: .5; cursor: not-allowed; }
+        .file-list-section h3 { font-size: 13px; color: #555; margin-bottom: 8px; font-weight: 600; }
+        .file-list { display: flex; flex-direction: column; gap: 6px; }
+        .empty-hint { text-align: center; color: #bbb; font-size: 12px; padding: 16px 0; }
+        .no-session-hint {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            color: #bbb; font-size: 14px; flex-direction: column; gap: 12px;
+        }
+        .no-session-hint button {
+            padding: 8px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; border: none; border-radius: 20px; cursor: pointer; font-size: 13px;
         }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <!-- 顶部标题 -->
-        <div class="chat-header">🤖 AI 聊天助手</div>
-
-        <!-- 标签页导航 -->
-        <div class="tab-nav">
-            <button class="tab-btn active" data-tab="chat">💬 聊天</button>
-            <button class="tab-btn" data-tab="knowledge">📚 知识库</button>
-        </div>
-
-        <!-- 聊天标签页 -->
-        <div class="tab-content active" id="tab-chat">
-            <div class="mode-switch">
-                <label>非流式</label>
-                <label class="switch">
-                    <input type="checkbox" id="streamMode" checked>
-                    <span class="slider"></span>
-                </label>
-                <label>流式</label>
+    <div class="app-container">
+        <!-- 左侧会话列表 -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>会话列表</h2>
+                <button class="new-session-btn" id="newSessionBtn">+ 新建</button>
             </div>
-            <div class="messages" id="messages">
-                <div class="message assistant">
-                    <div class="message-avatar">🤖</div>
-                    <div class="message-content">你好！我是 AI 助手，有什么可以帮助你的吗？</div>
-                </div>
-            </div>
-            <div class="input-area">
-                <div class="input-wrapper">
-                    <input type="text" id="messageInput" placeholder="输入你的问题..." autocomplete="off">
-                </div>
-                <button id="sendButton">发送</button>
+            <div class="session-list" id="sessionList">
+                <div class="session-empty" id="sessionEmpty">暂无会话记录</div>
             </div>
         </div>
 
-        <!-- 知识库标签页 -->
-        <div class="tab-content" id="tab-knowledge">
-            <div class="knowledge-page">
-                <div>
-                    <h2>知识库管理</h2>
-                    <p class="desc">上传文档后，AI 将基于文档内容为你提供更精准的回答。</p>
+        <!-- 右侧主区域 -->
+        <div class="main-area">
+            <div class="chat-header">
+                <div class="header-left">
+                    <span id="chatTitle">🤖 AI 聊天助手</span>
                 </div>
-                <div class="doc-list-section">
-                    <h3>
-                        <span>知识库文档</span>
-                        <button class="refresh-btn" id="refreshDocBtn">刷新</button>
-                    </h3>
-                    <div class="doc-file-list" id="docFileList">
-                        <div class="empty-hint" id="docEmptyHint">暂无知识库文档</div>
+                <div class="header-right">
+                    <button id="restartBtn" style="display:none;" title="重启会话（新开会话）">🔄 重启</button>
+                    <button id="deleteSessionBtn" style="display:none;" title="删除当前会话">🗑 删除</button>
+                </div>
+            </div>
+            <!-- 标签页导航 -->
+            <div class="tab-nav">
+                <button class="tab-btn active" data-tab="chat">💬 聊天</button>
+                <button class="tab-btn" data-tab="knowledge">📚 知识库</button>
+            </div>
+
+            <!-- 聊天标签页 -->
+            <div class="tab-content active" id="tab-chat">
+                <div class="mode-switch">
+                    <label>非流式</label>
+                    <label class="switch">
+                        <input type="checkbox" id="streamMode" checked>
+                        <span class="slider"></span>
+                    </label>
+                    <label>流式</label>
+                </div>
+                <div class="messages" id="messages">
+                    <div class="no-session-hint" id="noSessionHint">
+                        <span>请从左侧选择或新建一个会话</span>
+                        <button onclick="createNewSession()">新建会话</button>
                     </div>
                 </div>
-                <div class="upload-area" id="uploadArea">
-                    <input type="file" id="fileInput" accept=".txt,.md" multiple>
-                    <div class="upload-icon"></div>
-                    <div class="upload-text">点击或拖拽文件到此处上传</div>
-                    <div class="upload-hint">支持 .txt、.md 格式，单个文件最大 10MB</div>
+                <div class="input-area" id="inputArea" style="display:none;">
+                    <div class="input-wrapper">
+                        <input type="text" id="messageInput" placeholder="输入你的问题..." autocomplete="off">
+                    </div>
+                    <button id="sendButton">发送</button>
                 </div>
-                <div class="file-list-section">
-                    <h3>上传记录</h3>
-                    <div class="file-list" id="fileList">
-                        <div class="empty-hint" id="emptyHint">暂无上传文件</div>
+            </div>
+
+            <!-- 知识库标签页 -->
+            <div class="tab-content" id="tab-knowledge">
+                <div class="knowledge-page">
+                    <div>
+                        <h2>知识库管理</h2>
+                        <p class="desc">上传文档后，AI 将基于文档内容为你提供更精准的回答。</p>
+                    </div>
+                    <div class="doc-list-section">
+                        <h3>
+                            <span>知识库文档</span>
+                            <button class="refresh-btn" id="refreshDocBtn">刷新</button>
+                        </h3>
+                        <div class="doc-file-list" id="docFileList">
+                            <div class="empty-hint" id="docEmptyHint">暂无知识库文档</div>
+                        </div>
+                    </div>
+                    <div class="upload-area" id="uploadArea">
+                        <input type="file" id="fileInput" accept=".txt,.md" multiple>
+                        <div class="upload-icon"></div>
+                        <div class="upload-text">点击或拖拽文件到此处上传</div>
+                        <div class="upload-hint">支持 .txt、.md 格式，单个文件最大 10MB</div>
+                    </div>
+                    <div class="file-list-section">
+                        <h3>上传记录</h3>
+                        <div class="file-list" id="fileList">
+                            <div class="empty-hint" id="emptyHint">暂无上传文件</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -550,64 +310,243 @@
     <script>
         // ========== 配置 ==========
         const API_BASE_URL = 'http://localhost:8000/api/v1';
-        const SESSION_ID   = 'session_' + Date.now();
+        let CURRENT_SESSION_ID = null;
+
+        // ========== DOM ==========
+        const messagesContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const streamModeCheckbox = document.getElementById('streamMode');
+        const sessionList = document.getElementById('sessionList');
+        const sessionEmpty = document.getElementById('sessionEmpty');
+        const noSessionHint = document.getElementById('noSessionHint');
+        const inputArea = document.getElementById('inputArea');
+        const chatTitle = document.getElementById('chatTitle');
+        const restartBtn = document.getElementById('restartBtn');
+        const deleteSessionBtn = document.getElementById('deleteSessionBtn');
 
         // ========== 标签页切换 ==========
-        const tabBtns     = document.querySelectorAll('.tab-btn');
+        const tabBtns = document.querySelectorAll('.tab-btn');
         const tabContents = document.querySelectorAll('.tab-content');
-
         tabBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 const target = btn.dataset.tab;
-                tabBtns.forEach(b  => b.classList.remove('active'));
+                tabBtns.forEach(b => b.classList.remove('active'));
                 tabContents.forEach(c => c.classList.remove('active'));
                 btn.classList.add('active');
                 document.getElementById(`tab-${target}`).classList.add('active');
                 if (target === 'chat') messageInput.focus();
+                if (target === 'knowledge') loadDocuments();
             });
         });
 
+        // ========== 会话管理 ==========
+        async function loadSessions() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/sessions`);
+                const result = await res.json();
+                if (result.code === 200) {
+                    renderSessions(result.data);
+                }
+            } catch (e) { console.error('加载会话列表失败:', e); }
+        }
+
+        function renderSessions(sessions) {
+            sessionList.innerHTML = '';
+            if (!sessions || sessions.length === 0) {
+                sessionList.innerHTML = '<div class="session-empty">暂无会话记录</div>';
+                return;
+            }
+            sessions.forEach(s => {
+                const div = document.createElement('div');
+                div.className = 'session-item' + (s.session_id === CURRENT_SESSION_ID ? ' active' : '');
+                const timeStr = s.update_time ? new Date(s.update_time).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+                div.innerHTML = `
+                    <span class="session-status ${s.status}">${s.status === 'active' ? '活跃' : '已关闭'}</span>
+                    <div class="session-actions">
+                        <button title="重启" onclick="event.stopPropagation(); restartSession('${s.session_id}')">🔄</button>
+                        <button title="删除" onclick="event.stopPropagation(); deleteSession('${s.session_id}')">🗑</button>
+                    </div>
+                    <div class="session-title">${escapeHtml(s.title)}</div>
+                    <div class="session-time">${timeStr}</div>
+                `;
+                div.addEventListener('click', () => switchSession(s.session_id, s.title, s.status));
+                sessionList.appendChild(div);
+            });
+        }
+
+        function escapeHtml(text) {
+            const d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML;
+        }
+
+        async function createNewSession() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/sessions`, { method: 'POST' });
+                const result = await res.json();
+                if (result.code === 200) {
+                    CURRENT_SESSION_ID = result.data.session_id;
+                    chatTitle.textContent = '🤖 ' + result.data.title;
+                    messagesContainer.innerHTML = '';
+                    addWelcomeMessage();
+                    noSessionHint.style.display = 'none';
+                    inputArea.style.display = 'flex';
+                    restartBtn.style.display = 'inline-block';
+                    deleteSessionBtn.style.display = 'inline-block';
+                    messageInput.focus();
+                    await loadSessions();
+                }
+            } catch (e) { console.error('创建会话失败:', e); }
+        }
+
+        async function switchSession(sessionId, title, status) {
+            if (sessionId === CURRENT_SESSION_ID) return;
+            CURRENT_SESSION_ID = sessionId;
+            chatTitle.textContent = '🤖 ' + title;
+            noSessionHint.style.display = 'none';
+            inputArea.style.display = 'flex';
+            restartBtn.style.display = 'inline-block';
+            deleteSessionBtn.style.display = 'inline-block';
+            // 高亮
+            document.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'));
+            const items = sessionList.querySelectorAll('.session-item');
+            items.forEach(el => { if (el.querySelector('.session-title')?.textContent === title) el.classList.add('active'); });
+            // 加载历史消息
+            await loadMessages(sessionId);
+            // 重新渲染高亮
+            await loadSessions();
+        }
+
+        async function loadMessages(sessionId) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/sessions/${sessionId}/messages`);
+                const result = await res.json();
+                messagesContainer.innerHTML = '';
+                if (result.code === 200 && result.data.messages.length > 0) {
+                    result.data.messages.forEach(m => {
+                        addMessageWithTime(m.role, m.content, m.create_time);
+                    });
+                } else {
+                    addWelcomeMessage();
+                }
+            } catch (e) {
+                console.error('加载消息失败:', e);
+                messagesContainer.innerHTML = '';
+                addWelcomeMessage();
+            }
+        }
+
+        async function restartSession(sessionId) {
+            if (!confirm('确定要重启会话吗？将创建一个新会话。')) return;
+            try {
+                const res = await fetch(`${API_BASE_URL}/sessions/${sessionId}/restart`, { method: 'POST' });
+                const result = await res.json();
+                if (result.code === 200) {
+                    CURRENT_SESSION_ID = result.data.new_session_id;
+                    chatTitle.textContent = '🤖 ' + result.data.title;
+                    messagesContainer.innerHTML = '';
+                    addWelcomeMessage();
+                    await loadSessions();
+                }
+            } catch (e) { console.error('重启会话失败:', e); }
+        }
+
+        async function deleteSession(sessionId) {
+            if (!confirm('确定要删除该会话及其所有消息吗？')) return;
+            try {
+                const res = await fetch(`${API_BASE_URL}/sessions/${sessionId}`, { method: 'DELETE' });
+                const result = await res.json();
+                if (result.code === 200) {
+                    if (sessionId === CURRENT_SESSION_ID) {
+                        CURRENT_SESSION_ID = null;
+                        messagesContainer.innerHTML = '<div class="no-session-hint" id="noSessionHint"><span>请从左侧选择或新建一个会话</span><button onclick="createNewSession()">新建会话</button></div>';
+                        inputArea.style.display = 'none';
+                        restartBtn.style.display = 'none';
+                        deleteSessionBtn.style.display = 'none';
+                        chatTitle.textContent = '🤖 AI 聊天助手';
+                    }
+                    await loadSessions();
+                }
+            } catch (e) { console.error('删除会话失败:', e); }
+        }
+
+        // Header buttons
+        restartBtn.addEventListener('click', () => { if (CURRENT_SESSION_ID) restartSession(CURRENT_SESSION_ID); });
+        deleteSessionBtn.addEventListener('click', () => { if (CURRENT_SESSION_ID) deleteSession(CURRENT_SESSION_ID); });
+        document.getElementById('newSessionBtn').addEventListener('click', createNewSession);
+
         // ========== 聊天模块 ==========
-        const messagesContainer   = document.getElementById('messages');
-        const messageInput        = document.getElementById('messageInput');
-        const sendButton          = document.getElementById('sendButton');
-        const streamModeCheckbox  = document.getElementById('streamMode');
+        function addWelcomeMessage() {
+            addMessage('assistant', '你好！我是 AI 助手，有什么可以帮助你的吗？');
+        }
 
         function addMessage(role, content, isError = false) {
-            const messageDiv  = document.createElement('div');
-            messageDiv.className = `message ${role}${isError ? ' error' : ''}`;
+            const wrapper = document.createElement('div');
+            wrapper.className = `message ${role}${isError ? ' error' : ''}`;
 
-            const avatar  = document.createElement('div');
+            const avatar = document.createElement('div');
             avatar.className = 'message-avatar';
             avatar.textContent = role === 'user' ? '👤' : '🤖';
 
-            const contentDiv  = document.createElement('div');
+            const msgWrapper = document.createElement('div');
+            msgWrapper.className = 'message-wrapper';
+
+            const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
             contentDiv.textContent = content;
+            msgWrapper.appendChild(contentDiv);
 
-            messageDiv.appendChild(avatar);
-            messageDiv.appendChild(contentDiv);
-            messagesContainer.appendChild(messageDiv);
+            wrapper.appendChild(avatar);
+            wrapper.appendChild(msgWrapper);
+            messagesContainer.appendChild(wrapper);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return contentDiv;
+        }
+
+        function addMessageWithTime(role, content, timeStr) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `message ${role}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = role === 'user' ? '👤' : '🤖';
+
+            const msgWrapper = document.createElement('div');
+            msgWrapper.className = 'message-wrapper';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+            msgWrapper.appendChild(contentDiv);
+
+            if (timeStr) {
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'message-time';
+                timeDiv.textContent = new Date(timeStr).toLocaleString('zh-CN');
+                msgWrapper.appendChild(timeDiv);
+            }
+
+            wrapper.appendChild(avatar);
+            wrapper.appendChild(msgWrapper);
+            messagesContainer.appendChild(wrapper);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
             return contentDiv;
         }
 
         function addTypingIndicator() {
-            const messageDiv  = document.createElement('div');
-            messageDiv.className = 'message assistant';
-            messageDiv.id = 'typing-indicator';
-
-            const avatar  = document.createElement('div');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message assistant';
+            wrapper.id = 'typing-indicator';
+            const avatar = document.createElement('div');
             avatar.className = 'message-avatar';
             avatar.textContent = '🤖';
-
-            const indicator  = document.createElement('div');
+            const indicator = document.createElement('div');
             indicator.className = 'message-content typing-indicator';
             indicator.innerHTML = '<span></span><span></span><span></span>';
-
-            messageDiv.appendChild(avatar);
-            messageDiv.appendChild(indicator);
-            messagesContainer.appendChild(messageDiv);
+            wrapper.appendChild(avatar);
+            wrapper.appendChild(indicator);
+            messagesContainer.appendChild(wrapper);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
@@ -621,7 +560,7 @@
                 const response = await fetch(`${API_BASE_URL}/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ Id: SESSION_ID, Question: question })
+                    body: JSON.stringify({ Id: CURRENT_SESSION_ID, Question: question })
                 });
                 const result = await response.json();
                 removeTypingIndicator();
@@ -630,6 +569,7 @@
                 } else {
                     addMessage('assistant', result.data.errorMessage || '请求失败', true);
                 }
+                loadSessions(); // 刷新侧边栏
             } catch (error) {
                 removeTypingIndicator();
                 addMessage('assistant', '网络错误: ' + error.message, true);
@@ -641,16 +581,14 @@
                 const response = await fetch(`${API_BASE_URL}/stream_chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ Id: SESSION_ID, Question: question })
+                    body: JSON.stringify({ Id: CURRENT_SESSION_ID, Question: question })
                 });
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
                 removeTypingIndicator();
                 const contentDiv = addMessage('assistant', '');
-                const reader  = response.body.getReader();
+                const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let buffer = '';
-
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
@@ -665,12 +603,11 @@
                                     contentDiv.textContent += data.content;
                                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                                 }
-                            } catch (e) {
-                                console.error('解析 SSE 数据失败:', e);
-                            }
+                            } catch (e) { console.error('解析 SSE 数据失败:', e); }
                         }
                     }
                 }
+                loadSessions(); // 刷新侧边栏
             } catch (error) {
                 removeTypingIndicator();
                 addMessage('assistant', '网络错误: ' + error.message, true);
@@ -678,62 +615,48 @@
         }
 
         async function sendMessage() {
+            if (!CURRENT_SESSION_ID) { alert('请先创建或选择一个会话'); return; }
             const question = messageInput.value.trim();
             if (!question) return;
-
             addMessage('user', question);
             messageInput.value = '';
             messageInput.disabled = true;
-            sendButton.disabled   = true;
+            sendButton.disabled = true;
             addTypingIndicator();
-
             if (streamModeCheckbox.checked) {
                 await sendStreamChat(question);
             } else {
                 await sendNormalChat(question);
             }
-
             messageInput.disabled = false;
-            sendButton.disabled   = false;
+            sendButton.disabled = false;
             messageInput.focus();
         }
 
         sendButton.addEventListener('click', sendMessage);
         messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
         });
 
         // ========== 知识库模块 ==========
-        const uploadArea   = document.getElementById('uploadArea');
-        const fileInput    = document.getElementById('fileInput');
-        const fileList     = document.getElementById('fileList');
-        const emptyHint    = document.getElementById('emptyHint');
-        const docFileList  = document.getElementById('docFileList');
-        const docEmptyHint = document.getElementById('docEmptyHint');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const emptyHint = document.getElementById('emptyHint');
+        const docFileList = document.getElementById('docFileList');
         const refreshDocBtn = document.getElementById('refreshDocBtn');
 
-        // 加载知识库文档列表
         async function loadDocuments() {
             try {
                 const response = await fetch(`${API_BASE_URL}/documents`);
                 const result = await response.json();
-                if (result.code === 200 && Array.isArray(result.data)) {
-                    renderDocList(result.data);
-                }
-            } catch (error) {
-                console.error('加载文档列表失败:', error);
-            }
+                if (result.code === 200 && Array.isArray(result.data)) renderDocList(result.data);
+            } catch (error) { console.error('加载文档列表失败:', error); }
         }
 
         function renderDocList(docs) {
             docFileList.innerHTML = '';
-            if (docs.length === 0) {
-                docFileList.innerHTML = '<div class="empty-hint" id="docEmptyHint">暂无知识库文档</div>';
-                return;
-            }
+            if (docs.length === 0) { docFileList.innerHTML = '<div class="empty-hint">暂无知识库文档</div>'; return; }
             docs.forEach(doc => {
                 const div = document.createElement('div');
                 div.className = 'file-item';
@@ -750,58 +673,27 @@
         }
 
         async function deleteDocument(id, name, element) {
-            if (!confirm(`确定要删除文档「${name}」吗？将同时删除向量索引和本地文件。`)) return;
+            if (!confirm(`确定要删除文档「${name}」吗？`)) return;
             const btn = element.querySelector('.delete-btn');
-            btn.disabled = true;
-            btn.textContent = '删除中...';
+            btn.disabled = true; btn.textContent = '删除中...';
             try {
                 const response = await fetch(`${API_BASE_URL}/documents/${id}`, { method: 'DELETE' });
                 const result = await response.json();
                 if (response.ok && result.code === 200) {
                     element.remove();
-                    if (docFileList.children.length === 0) {
-                        docFileList.innerHTML = '<div class="empty-hint">暂无知识库文档</div>';
-                    }
-                } else {
-                    alert(result.detail || '删除失败');
-                    btn.disabled = false;
-                    btn.textContent = '删除';
-                }
-            } catch (error) {
-                alert('网络错误: ' + error.message);
-                btn.disabled = false;
-                btn.textContent = '删除';
-            }
+                    if (docFileList.children.length === 0) docFileList.innerHTML = '<div class="empty-hint">暂无知识库文档</div>';
+                } else { alert(result.detail || '删除失败'); btn.disabled = false; btn.textContent = '删除'; }
+            } catch (error) { alert('网络错误: ' + error.message); btn.disabled = false; btn.textContent = '删除'; }
         }
 
-        // 切换到知识库标签页时加载文档列表
-        tabBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (btn.dataset.tab === 'knowledge') loadDocuments();
-            });
-        });
-
         refreshDocBtn.addEventListener('click', loadDocuments);
-
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
+        uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+        uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('dragover'); });
         uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
+            e.preventDefault(); uploadArea.classList.remove('dragover');
             if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files);
         });
-
-        fileInput.addEventListener('change', () => {
-            if (fileInput.files.length > 0) {
-                handleFiles(fileInput.files);
-                fileInput.value = '';
-            }
-        });
+        fileInput.addEventListener('change', () => { if (fileInput.files.length > 0) { handleFiles(fileInput.files); fileInput.value = ''; } });
 
         async function handleFiles(files) {
             for (const file of files) {
@@ -810,23 +702,11 @@
                     const formData = new FormData();
                     formData.append('file', file);
                     setStatus(item, '上传中...', 'uploading');
-
-                    const response = await fetch(`${API_BASE_URL}/upload`, {
-                        method: 'POST',
-                        body: formData
-                    });
+                    const response = await fetch(`${API_BASE_URL}/upload`, { method: 'POST', body: formData });
                     const result = await response.json();
-
-                    if (response.ok && result.code === 200) {
-                        setStatus(item, '✓ 上传成功', 'success');
-                        loadDocuments();
-                    } else {
-                        const msg = result.detail || result.message || '上传失败';
-                        setStatus(item, `✗ ${msg}`, 'error');
-                    }
-                } catch (error) {
-                    setStatus(item, '✗ 网络错误', 'error');
-                }
+                    if (response.ok && result.code === 200) { setStatus(item, '✓ 上传成功', 'success'); loadDocuments(); }
+                    else { setStatus(item, `✗ ${result.detail || result.message || '上传失败'}`, 'error'); }
+                } catch (error) { setStatus(item, '✗ 网络错误', 'error'); }
             }
         }
 
@@ -841,11 +721,12 @@
 
         function setStatus(item, text, cls) {
             const status = item.querySelector('.file-status');
-            status.textContent  = text;
-            status.className    = `file-status ${cls}`;
+            status.textContent = text;
+            status.className = `file-status ${cls}`;
         }
 
-        // 自动聚焦输入框
+        // ========== 初始化 ==========
+        loadSessions();
         messageInput.focus();
     </script>
 </body>

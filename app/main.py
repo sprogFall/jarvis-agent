@@ -4,9 +4,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.router import api_router
 from api.chat import router as chat_router
 from api.file import router as file_router
+from api.chat_history import router as chat_history_router
 from db.session import engine
 from db.base import Base
 from core.config import settings
+# 导入所有模型，确保 create_all 能建表
+from model import document, chat  # noqa: F401
 
 
 
@@ -30,6 +33,7 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(chat_router, prefix="/api/v1")
 app.include_router(file_router, prefix="/api/v1")
+app.include_router(chat_history_router, prefix="/api/v1")
 
 @app.get("/health")
 def health_check():
