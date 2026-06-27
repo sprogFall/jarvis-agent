@@ -44,7 +44,7 @@ class VectorStoreManager:
             logger.info("开始初始化Vector Store")
             client = QdrantClient(
                 url=settings.qdrant_url, 
-                api_key=settings.qdrant_api_key
+                api_key=settings.qdrant_api_key if settings.qdrant_api_key else None
             )
             if not client.collection_exists(self.collection_name):
                 self._create_collection(client)
