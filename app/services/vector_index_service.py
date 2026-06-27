@@ -1,7 +1,9 @@
 import hashlib
 from pathlib import Path
 
+from core.config import settings
 from services.document_record_service import DocumentRecordService
+from services.ocr_service import ocr_service
 from services.vector_store_manager import vector_store_manager
 from services.document_split_service import document_split_service
 from db.session import Session
@@ -75,7 +77,7 @@ class VectorIndexService:
 
     def get_hash(self, path: Path) -> str:
         hasher = hashlib.md5()
-        with open(path, "rb") as f :
+        with open(path, "rb") as f:
             for chunk in iter(lambda: f.read(8192), b""):
                 hasher.update(chunk)
         return hasher.hexdigest()
@@ -106,14 +108,42 @@ class VectorIndexService:
         from pypdf import PdfReader
         reader = PdfReader(str(path))
         text_part = []
+        empty_page_count = 0
         for page in reader.pages:
             page_text = page.extract_text()
-            if page_text:
+            if page_text and page_text.strip():
                 text_part.append(page_text)
-        if not text_part:
-            raise ValueError(f"PDF文件{path}没有可索引的内容")
-        return "\n".join(text_part).strip()
+            else:
+                # 空页+1
+                empty_page_count += 1
+        total_pages = len(reader.pages)
+        extracted_text = "\n".join(text_part).strip()
+        # 判定是否为扫描件：
+        # 1. 完全提取不到文本
+        # 2. 或超过半数页面无文本，且总文本量低于阈值
+        is_scanned = (
+                not extracted_text
+                or (
+                        total_pages > 0
+                        and empty_page_count / total_pages >= 0.5
+                )
+        )
+        if not is_scanned:
+            if not text_part:
+                raise ValueError(f"PDF文件{path}无有效文本")
+            return extracted_text
 
+        # 执行OCR扫描
+        logger.info(
+            f"PDF文件{path}疑似扫描件（共{total_pages}页，"
+            f"其中{empty_page_count}页无文本，提取到{len(extracted_text)}字符），"
+            f"尝试使用OCR识别"
+        )
+        if not settings.ocr_enabled:
+            raise ValueError(
+                f"PDF文件{path}为扫描件且OCR未启用(ocr_enabled=False)，无法提取内容"
+            )
+        return ocr_service.ocr(path)
 
 
 vector_index_service = VectorIndexService()

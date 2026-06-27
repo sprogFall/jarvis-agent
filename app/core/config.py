@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     # 分片重叠字数，默认100
     chunk_overlap: int = 100
 
+    # OCR相关配置
+    ocr_api_url: str = ""
+    ocr_api_key: str = ""
+    ocr_model: str = ""
+    ocr_enabled: bool = True
+
     # Redis 连接字符串，默认为空
     redis_conn_string: str = ""
     # MySQL连接地址
