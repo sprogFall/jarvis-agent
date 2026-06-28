@@ -6,7 +6,6 @@ from typing import Dict, List, Tuple
 
 from langchain_core.documents import Document
 from langchain_core.tools import tool
-from langchain_classic.retrievers import EnsembleRetriever
 from core.config import settings
 from services.vector_store_manager import vector_store_manager
 from loguru import logger
@@ -97,7 +96,7 @@ def _hybrid_search(query: str) -> List[Document]:
     if settings.debug:
         # 调试模式打印RFF排名和来源
         for rank, doc in enumerate(final_docs, 1):
-            logger.info(f"文档来源: {doc.metadata['_retriever_source']}, RRF分数: {doc.metadata['_rrf_score']:.4f}, 排名: {rank}")
+            logger.info(f"文档id:{doc.metadata["_doc_id"]},文档来源: {doc.metadata['_retriever_source']}, RRF分数: {doc.metadata['_rrf_score']:.4f}, 排名: {rank}")
 
     return final_docs
 

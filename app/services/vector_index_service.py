@@ -1,7 +1,6 @@
 import hashlib
 from pathlib import Path
 
-from core.config import settings
 from services.document_record_service import DocumentRecordService
 from services.ocr_service import ocr_service
 from services.vector_store_manager import vector_store_manager
@@ -88,12 +87,13 @@ class VectorIndexService:
         :param path 文件路径
         :param suffix 文件后缀
         """
-        content = None
         if suffix in [".txt", ".md"]:
             try:
                 content = path.read_text(encoding="utf-8")
             except UnicodeDecodeError:
                 raise ValueError(f"文件编码非UTF-8")
+        elif suffix in [".png", ".jpg", ".jpeg"]:
+            content = ocr_service.ocr(path)
         elif suffix == ".pdf":
             content = self.read_from_pdf(path)
         else:
@@ -139,11 +139,6 @@ class VectorIndexService:
             f"其中{empty_page_count}页无文本，提取到{len(extracted_text)}字符），"
             f"尝试使用OCR识别"
         )
-        if not settings.ocr_enabled:
-            raise ValueError(
-                f"PDF文件{path}为扫描件且OCR未启用(ocr_enabled=False)，无法提取内容"
-            )
         return ocr_service.ocr(path)
-
 
 vector_index_service = VectorIndexService()

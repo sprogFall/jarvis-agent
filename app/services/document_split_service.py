@@ -1,6 +1,7 @@
 
 
 import datetime
+import uuid
 from pathlib import Path
 from typing import List
 
@@ -61,7 +62,8 @@ class DocumentSplitService:
                         "_source": file_path,
                         "_extension": Path(file_path).suffix,
                         "_file_name": Path(file_path).name,
-                        "_create_time": datetime.datetime.now()
+                        "_create_time": datetime.datetime.now(),
+                        "_doc_id": str(uuid.uuid4())
                     }
                 ]
             )
@@ -92,6 +94,7 @@ class DocumentSplitService:
                 doc.metadata["_extension"] = Path(file_path).suffix
                 doc.metadata["_file_name"] = Path(file_path).name
                 doc.metadata["_create_time"] = datetime.datetime.now()
+                doc.metadata["_doc_id"] = str(uuid.uuid4())
             logger.info(f"Markdown文档分割完成，{file_path}, 分片数量: {len(final_docs)}")
             return final_docs
         except Exception as e:

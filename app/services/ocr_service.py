@@ -47,6 +47,10 @@ class OcrService:
         }
 
     def ocr(self, path: Path):
+        if not settings.ocr_enabled:
+            raise ValueError(
+                f"PDF文件{path}为扫描件且OCR未启用(ocr_enabled=False)，无法提取内容"
+            )
         file_path = path.as_posix()
         job_response = None
         logger.info(f"Processing file: {file_path}")
