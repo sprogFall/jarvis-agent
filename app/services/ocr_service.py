@@ -142,7 +142,7 @@ class OcrService:
                         md_all_file.write(separator + res["markdown"]["text"])
                         md_content += separator + res["markdown"]["text"]
 
-                        # 图片保存逻辑保持不变（markdown images 和 outputImages）
+                        # 图片保存逻辑保持不变（markdown images）
                         for img_path, img in res["markdown"]["images"].items():
                             full_img_path = os.path.join(output_dir, img_path)
                             os.makedirs(os.path.dirname(full_img_path), exist_ok=True)
@@ -150,15 +150,6 @@ class OcrService:
                             with open(full_img_path, "wb") as img_file:
                                 img_file.write(img_bytes)
                             logger.info(f"OCR得到的图片[images]保存至: {full_img_path}")
-                        for img_name, img in res["outputImages"].items():
-                            img_response = requests.get(img)
-                            if img_response.status_code == 200:
-                                filename = os.path.join(output_dir, f"{img_name}_{page_num}.jpg")
-                                with open(filename, "wb") as f:
-                                    f.write(img_response.content)
-                                logger.info(f"OCR得到的图片[outputImages]保存至: {filename}")
-                            else:
-                                logger.info(f"图片下载失败, status code: {img_response.status_code}")
 
                         page_num += 1
 
