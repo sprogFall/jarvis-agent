@@ -7,6 +7,7 @@ from typing import Dict, List, Tuple
 from langchain_core.documents import Document
 from langchain_core.tools import tool
 from core.config import settings
+from services.rerank_service import rerank_service
 from services.vector_store_manager import vector_store_manager
 from loguru import logger
 
@@ -76,10 +77,10 @@ def _hybrid_search(query: str) -> List[Document]:
     # 计算RRF分数
 
     def _calculate_rff(docs: List[Document], weight):
-        for rank, doc in enumerate(docs, 1):
-            doc_id = doc.metadata.get("id") or doc.page_content
-            doc_map[doc_id].metadata["_retriever_source"].append(doc.metadata.get("_from_source"))
-            doc_map[doc_id].metadata["_rrf_score"] += weight * (1.0 / (60 + rank))
+        for doc_rank, doc_entity in enumerate(docs, 1):
+            doc_entity_id = doc_entity.metadata.get("id") or doc_entity.page_content
+            doc_map[doc_entity_id].metadata["_retriever_source"].append(doc_entity.metadata.get("_from_source"))
+            doc_map[doc_entity_id].metadata["_rrf_score"] += weight * (1.0 / (60 + doc_rank))
 
     # 分别计算两个检索器的rff
     bm25_weight = 1.0 - settings.vector_weight
@@ -92,12 +93,16 @@ def _hybrid_search(query: str) -> List[Document]:
         key=lambda d: d.metadata["_rrf_score"],
         reverse=True
     )
-    final_docs = sorted_docs[:settings.final_top_k]
+    # 截取给rerank模型进行排序的doc
+    if settings.rerank_enabled:
+        # 调用rerank重排序
+        final_docs = rerank_service.rerank(query, sorted_docs, settings.final_top_k)
+    else:
+        final_docs = sorted_docs[:settings.final_top_k]
     if settings.debug:
         # 调试模式打印RFF排名和来源
         for rank, doc in enumerate(final_docs, 1):
             logger.info(f"文档id:{doc.metadata["_doc_id"]},文档来源: {doc.metadata['_retriever_source']}, RRF分数: {doc.metadata['_rrf_score']:.4f}, 排名: {rank}")
-
     return final_docs
 
 

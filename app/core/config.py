@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     ocr_model: str = ""
     ocr_enabled: bool = True
 
+    # Rerank配置
+    rerank_enabled: bool = True
+    rerank_api_url: str = ""
+    rerank_api_key: str = ""
+    rerank_model: str = ""
+
     # Redis 连接字符串，默认为空
     redis_conn_string: str = ""
     # MySQL连接地址
@@ -48,6 +54,8 @@ class Settings(BaseSettings):
     vector_weight: float = 0.6
     # 是否启用混合检索（False则纯向量检索）
     hybrid_search_enabled: bool = True
+    # 送入rerank的文档数量
+    rerank_candidate_k: int = 20
 
     # 流式响应超时（秒）：单个 chunk 之间最大等待时间
     # 设置较大的值防止模型思考时间较长时被误判超时，默认 300 秒
