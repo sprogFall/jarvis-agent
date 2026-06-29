@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     # 最终返回给LLM的文档数量
     final_top_k: int = 5
     # 向量检索权重，BM25权重为 1 - vector_weight
-    vector_weight: float = 0.6
+    vector_weight: float = 0.5
     # 是否启用混合检索（False则纯向量检索）
     hybrid_search_enabled: bool = True
     # 送入rerank的文档数量

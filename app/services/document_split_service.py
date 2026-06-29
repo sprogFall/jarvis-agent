@@ -63,10 +63,10 @@ class DocumentSplitService:
                         "_extension": Path(file_path).suffix,
                         "_file_name": Path(file_path).name,
                         "_create_time": datetime.datetime.now(),
-                        "_doc_id": str(uuid.uuid4())
                     }
                 ]
             )
+            self.common_doc_set(docs)
             logger.info(f"文本文档分割完成: {file_path}, 分片数量: {len(docs)}")
             return docs
         except Exception as e:
@@ -94,7 +94,7 @@ class DocumentSplitService:
                 doc.metadata["_extension"] = Path(file_path).suffix
                 doc.metadata["_file_name"] = Path(file_path).name
                 doc.metadata["_create_time"] = datetime.datetime.now()
-                doc.metadata["_doc_id"] = str(uuid.uuid4())
+            self.common_doc_set(final_docs)
             logger.info(f"Markdown文档分割完成，{file_path}, 分片数量: {len(final_docs)}")
             return final_docs
         except Exception as e:
@@ -110,6 +110,13 @@ class DocumentSplitService:
         else:
             return self.split_text(content, file_path)
 
+
+    def common_doc_set(self, docs: List[Document]):
+        """
+        对文档的统一处理逻辑
+        """
+        for doc in docs:
+            doc.metadata["_doc_id"] = uuid.uuid4()
 
 # 创建文档分割服务实例
 document_split_service = DocumentSplitService()

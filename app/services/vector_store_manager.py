@@ -17,8 +17,16 @@ def _chinese_tokenize(text: str) -> List[str]:
     """
     中文分词函数，用于 BM25 检索
     使用 jieba 分词，并过滤空白 token
+    在 jieba 词结果上额外补充字符 bigram，提升短词/人名等未登录词的 IDF
     """
-    return [t for t in jieba.lcut(text) if t.strip()]
+    tokens = [t for t in jieba.lcut(text) if t.strip()]
+    # 补充字符 bigram：连续 2 个非空白字符一组
+    # 对未登录词（如人名"章佳豪"被切成单字"章/佳/豪"），
+    # bigram"章佳""佳豪"在语料里极罕见 → IDF 高 → 命中时 BM25 分数显著拉开
+    chars = [ch for ch in text if not ch.isspace()]
+    bigrams = [chars[i] + chars[i + 1] for i in range(len(chars) - 1)]
+    return tokens + bigrams
+
 
 COLLECTION_NAME = "Jarvis"
 
