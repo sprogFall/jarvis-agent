@@ -170,13 +170,59 @@ class VectorIndexService:
 
     def read_from_doc(self, path: Path) -> str:
         """
-        从doc文件中读取内容，调用antiword解析Word 97-2003二进制格式
+        从doc文件中读取内容
+        优先用LibreOffice转换为docx后复用read_from_docx（保留表格结构）；
+        若LibreOffice未配置或转换失败，降级到antiword纯文本提取。
+        """
+        # 优先尝试LibreOffice转换
+        soffice_path = settings.libreoffice_path
+        if soffice_path and Path(soffice_path).exists():
+            try:
+                converted = self._convert_doc_to_docx(path, soffice_path)
+                if converted:
+                    content = self.read_from_docx(converted)
+                    logger.info(f"doc文件{path}通过LibreOffice转换解析完成")
+                    return content
+            except Exception as e:
+                logger.warning(f"LibreOffice转换失败，降级到antiword: {e}")
+        # 降级：antiword纯文本
+        return self._read_from_doc_antiword(path)
+
+    def _convert_doc_to_docx(self, path: Path, soffice_path: str) -> Path:
+        """
+        调用LibreOffice headless将.doc转换为.docx，返回转换后的文件路径
+        """
+        import subprocess
+        import tempfile
+        import shutil
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            result = subprocess.run(
+                [soffice_path, "--headless", "--convert-to", "docx", "--outdir", tmp_dir, str(path)],
+                capture_output=True,
+                timeout=120,
+            )
+            if result.returncode != 0:
+                err = result.stderr.decode("utf-8", errors="ignore").strip()
+                raise RuntimeError(f"soffice转换失败: {err}")
+            converted = Path(tmp_dir) / (path.stem + ".docx")
+            if not converted.exists():
+                raise RuntimeError(f"soffice未生成输出文件: {converted}")
+            # 复制到稳定位置（临时目录退出后会被清理）；shutil支持跨盘移动
+            stable_path = path.with_suffix(".converted.docx")
+            shutil.move(str(converted), str(stable_path))
+            return stable_path
+
+    def _read_from_doc_antiword(self, path: Path) -> str:
+        """
+        antiword纯文本提取（表格结构会被拍平）
         """
         import subprocess
         antiword_path = settings.antiword_path
-        if not Path(antiword_path).exists():
-            raise ValueError(f"antiword未找到: {antiword_path}，请在配置中设置antiword_path")
-        # -m UTF-8.txt 指定字符映射，使中文正确输出为UTF-8
+        if not antiword_path or not Path(antiword_path).exists():
+            raise ValueError(
+                f"无法解析.doc文件：libreoffice_path未配置或转换失败，且antiword_path未配置。"
+                f"请至少配置其一。"
+            )
         result = subprocess.run(
             [antiword_path, "-m", "UTF-8.txt", str(path)],
             capture_output=True,

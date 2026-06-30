@@ -45,6 +45,8 @@ class Settings(BaseSettings):
 
     # antiword可执行文件路径，用于解析.doc文件
     antiword_path: str = ""
+    # LibreOffice可执行文件路径，用于.doc转.docx（解析表格等复杂结构）
+    libreoffice_path: str = ""
 
     # 混合检索配置
     # 向量检索返回数量
