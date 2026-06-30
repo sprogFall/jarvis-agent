@@ -5,6 +5,7 @@ from services.document_record_service import DocumentRecordService
 from services.ocr_service import ocr_service
 from services.vector_store_manager import vector_store_manager
 from services.document_split_service import document_split_service
+from core.config import settings
 from db.session import Session
 from loguru import logger
 
@@ -96,6 +97,10 @@ class VectorIndexService:
             content = ocr_service.ocr(path)
         elif suffix == ".pdf":
             content = self.read_from_pdf(path)
+        elif suffix == ".docx":
+            content = self.read_from_docx(path)
+        elif suffix == ".doc":
+            content = self.read_from_doc(path)
         else:
             raise ValueError(f"不支持的文件类型:{suffix}")
 
@@ -140,5 +145,49 @@ class VectorIndexService:
             f"尝试使用OCR识别"
         )
         return ocr_service.ocr(path)
+
+    def read_from_docx(self, path: Path) -> str:
+        """
+        从docx文件中读取内容
+        """
+        from docx import Document as DocxDocument
+        doc = DocxDocument(str(path))
+        text_part = []
+        for para in doc.paragraphs:
+            text = para.text.strip()
+            if text:
+                text_part.append(text)
+        # 表格内容
+        for table in doc.tables:
+            for row in table.rows:
+                row_text = [cell.text.strip() for cell in row.cells if cell.text and cell.text.strip()]
+                if row_text:
+                    text_part.append(" ".join(row_text))
+        extracted_text = "\n".join(text_part).strip()
+        if not extracted_text:
+            raise ValueError(f"docx文件{path}无有效文本")
+        return extracted_text
+
+    def read_from_doc(self, path: Path) -> str:
+        """
+        从doc文件中读取内容，调用antiword解析Word 97-2003二进制格式
+        """
+        import subprocess
+        antiword_path = settings.antiword_path
+        if not Path(antiword_path).exists():
+            raise ValueError(f"antiword未找到: {antiword_path}，请在配置中设置antiword_path")
+        # -m UTF-8.txt 指定字符映射，使中文正确输出为UTF-8
+        result = subprocess.run(
+            [antiword_path, "-m", "UTF-8.txt", str(path)],
+            capture_output=True,
+            timeout=60,
+        )
+        if result.returncode != 0:
+            err = result.stderr.decode("utf-8", errors="ignore").strip()
+            raise ValueError(f"antiword解析失败: {err}")
+        content = result.stdout.decode("utf-8", errors="ignore").strip()
+        if not content:
+            raise ValueError(f"doc文件{path}无有效文本")
+        return content
 
 vector_index_service = VectorIndexService()

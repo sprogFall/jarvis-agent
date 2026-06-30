@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     upload_dir: str = str((BASE_DIR.parent / "uploads").resolve())
     sqlalchemy_echo: bool = True
 
+    # antiword可执行文件路径，用于解析.doc文件
+    antiword_path: str = ""
+
     # 混合检索配置
     # 向量检索返回数量
     vector_search_k: int = 10
