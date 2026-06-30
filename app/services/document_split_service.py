@@ -104,11 +104,52 @@ class DocumentSplitService:
     def split_document(self, content: str, file_path: str = "") -> List[Document]:
         """
         智能根据文件类型分割文档
+        Excel/CSV 在读取层已转为行结构化文本，按工作表边界独立切片。
         """
-        if Path(file_path).suffix == ".md":
+        suffix = Path(file_path).suffix.lower()
+        if suffix == ".md":
             return self.split_markdown(content, file_path)
+        elif suffix in [".xlsx", ".xls", ".csv"]:
+            return self.split_tabular(content, file_path)
         else:
             return self.split_text(content, file_path)
+
+    def split_tabular(self, content: str, file_path: str = "") -> List[Document]:
+        """
+        按工作表边界切分表格类文本(Excel/CSV)。
+        每个工作表独立切片，避免跨表混切，metadata 带 _sheet_name。
+        读取层已用 [工作表: xxx] 标记每个表块，这里按标记拆段后逐段复用 text_splitter。
+        """
+        import re
+        pattern = r'\[工作表: ([^\]]+)\]'
+        matches = list(re.finditer(pattern, content))
+        if not matches:
+            # 无工作表标记，退化为普通文本切片
+            return self.split_text(content, file_path)
+
+        base_meta = {
+            "_source": file_path,
+            "_extension": Path(file_path).suffix,
+            "_file_name": Path(file_path).name,
+            "_create_time": datetime.datetime.now(),
+        }
+        docs: List[Document] = []
+        for i, m in enumerate(matches):
+            sheet_name = m.group(1)
+            start = m.start()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
+            sheet_text = content[start:end].strip()
+            if not sheet_text:
+                continue
+            meta = {**base_meta, "_sheet_name": sheet_name}
+            seg_docs = self.text_splitter.create_documents(
+                texts=[sheet_text],
+                metadatas=[meta],
+            )
+            docs.extend(seg_docs)
+        self.common_doc_set(docs)
+        logger.info(f"表格文档分割完成: {file_path}, 工作表数: {len(matches)}, 分片数量: {len(docs)}")
+        return docs
 
 
     def common_doc_set(self, docs: List[Document]):

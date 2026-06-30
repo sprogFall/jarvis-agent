@@ -101,6 +101,10 @@ class VectorIndexService:
             content = self.read_from_docx(path)
         elif suffix == ".doc":
             content = self.read_from_doc(path)
+        elif suffix in [".xlsx", ".xls"]:
+            content = self.read_from_excel(path, suffix)
+        elif suffix == ".csv":
+            content = self.read_from_csv(path)
         else:
             raise ValueError(f"不支持的文件类型:{suffix}")
 
@@ -235,5 +239,90 @@ class VectorIndexService:
         if not content:
             raise ValueError(f"doc文件{path}无有效文本")
         return content
+
+    def read_from_excel(self, path: Path, suffix: str) -> str:
+        """
+        从Excel文件读取内容，返回行结构化文本。
+        每行格式: 行N → 列名: 值 | 列名: 值
+        每行自带表头，便于后续按普通文本切片后每个分片仍可独立检索。
+        """
+        parts = []
+        if suffix == ".xlsx":
+            from openpyxl import load_workbook
+            wb = load_workbook(filename=str(path), data_only=True, read_only=True)
+            try:
+                for ws in wb.worksheets:
+                    sheet_text = self._sheet_to_row_text(ws.title, ws.iter_rows(values_only=True))
+                    if sheet_text:
+                        parts.append(sheet_text)
+            finally:
+                wb.close()
+        else:  # .xls
+            import xlrd
+            book = xlrd.open_workbook(str(path))
+            for sheet in book.sheets():
+                rows_iter = (
+                    [sheet.cell_value(r, c) for c in range(sheet.ncols)]
+                    for r in range(sheet.nrows)
+                )
+                sheet_text = self._sheet_to_row_text(sheet.name, rows_iter)
+                if sheet_text:
+                    parts.append(sheet_text)
+
+        content = "\n\n".join(parts).strip()
+        if not content:
+            raise ValueError(f"Excel文件{path}无有效内容")
+        return content
+
+    @staticmethod
+    def _sheet_to_row_text(sheet_name: str, rows_iter) -> str:
+        """
+        将一个工作表转为行结构化文本，每行带上表头。
+        不同工作表之间由调用方用空行分隔，便于切片器在sheet边界自然切分。
+        """
+        try:
+            headers = next(rows_iter)
+        except StopIteration:
+            return ""
+        headers = [
+            str(h).strip() if h is not None and str(h).strip() else f"列{i + 1}"
+            for i, h in enumerate(headers)
+        ]
+        lines = [f"[工作表: {sheet_name}]"]
+        row_idx = 2  # 数据从第2行开始（第1行为表头）
+        for row in rows_iter:
+            if all(c is None or str(c).strip() == "" for c in row):
+                row_idx += 1
+                continue
+            pairs = []
+            for h, v in zip(headers, row):
+                if v is None or str(v).strip() == "":
+                    continue
+                pairs.append(f"{h}: {v}")
+            if not pairs:
+                row_idx += 1
+                continue
+            lines.append(f"行{row_idx} → " + " | ".join(pairs))
+            row_idx += 1
+        # 只有标题行没有数据行时返回空
+        return "\n".join(lines) if len(lines) > 1 else ""
+
+    def read_from_csv(self, path: Path) -> str:
+        """
+        从CSV文件读取内容，返回行结构化文本
+        """
+        import csv
+        rows = None
+        for encoding in ("utf-8-sig", "utf-8", "gbk"):
+            try:
+                with open(path, "r", encoding=encoding, newline="") as f:
+                    rows = list(csv.reader(f))
+                break
+            except UnicodeDecodeError:
+                continue
+        if not rows:
+            raise ValueError(f"CSV文件{path}无有效内容")
+        return self._sheet_to_row_text(Path(path).stem, iter(rows))
+
 
 vector_index_service = VectorIndexService()

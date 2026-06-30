@@ -15,7 +15,7 @@ router = APIRouter()
 UPLOAD_DIR = Path(settings.upload_dir)
 
 # 支持的文件类型
-ALLOWED_EXTENSIONS = [".txt", '.md', ".pdf", ".png", ".jpg", ".jpeg", ".doc", ".docx"]
+ALLOWED_EXTENSIONS = [".txt", '.md', ".pdf", ".png", ".jpg", ".jpeg", ".doc", ".docx", ".xlsx", ".xls", ".csv"]
 
 # 文件大小限制 10MB
 MAX_FILE_SIZE = 10 * 1024 * 1024
