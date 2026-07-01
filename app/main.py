@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
 from api.router import api_router
 from api.chat import router as chat_router
 from api.file import router as file_router
@@ -17,7 +18,26 @@ from model import document, chat  # noqa: F401
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     print("数据库创建完毕")
+
+    # 启动飞书机器人（需在 .env 配置 FEISHU_ENABLED=true 及凭证）
+    if settings.feishu_enabled and settings.feishu_app_id and settings.feishu_app_secret:
+        from services.feishu.feishu_bot import feishu_bot
+        try:
+            await feishu_bot.start()
+            logger.info("飞书机器人已启动")
+        except Exception as e:
+            logger.warning(f"飞书机器人启动失败（不影响主服务）: {e}")
+
     yield
+
+    # 关闭飞书机器人长连接
+    if settings.feishu_enabled and settings.feishu_app_id:
+        from services.feishu.feishu_bot import feishu_bot
+        try:
+            await feishu_bot.stop()
+        except Exception as e:
+            logger.warning(f"飞书机器人关闭失败（不影响主服务）: {e}")
+            pass
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 

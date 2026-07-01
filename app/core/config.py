@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     # 设置较大的值防止模型思考时间较长时被误判超时，默认 300 秒
     stream_chunk_timeout: int = 300
 
+    # ===== 飞书机器人配置 =====
+    # 是否启用飞书机器人（需同时配置 app_id / app_secret）
+    feishu_enabled: bool = True
+    feishu_app_id: str = ""
+    feishu_app_secret: str = ""
+    # 飞书域名：国内 https://open.feishu.cn ，国际 https://open.larksuite.com
+    feishu_domain: str = "https://open.feishu.cn"
+
     # 调试模式
     debug: bool = False
 
